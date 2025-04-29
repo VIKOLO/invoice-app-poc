@@ -10,11 +10,11 @@
         body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input[type="text"] { width: 90%; max-width: 400px; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
-        /* Style specifically for the Uploadcare hidden inputs if needed */
-        input[type="hidden"][role="uploadcare-uploader"] { /* Add styles if default widget appearance needs override */ }
         button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; margin-top: 5px;}
         button:hover { background-color: #0056b3; }
-        #statusMessage, #secondUploadStatus { margin-top: 15px; padding: 10px; border-radius: 4px; background-color: #e9ecef; }
+        /* Style for the Uploadcare button container */
+        .uploadcare--widget { margin-bottom: 15px; }
+        #statusMessage, #secondUploadStatus, #checkStatusMessage { margin-top: 15px; padding: 10px; border-radius: 4px; background-color: #e9ecef; }
         #resultsTable { margin-top: 20px; border-collapse: collapse; width: 100%; max-width: 600px; }
         #resultsTable th, #resultsTable td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         #resultsTable th { background-color: #f2f2f2; }
@@ -31,30 +31,16 @@
     <!-- Section for First Invoice Upload -->
     <div class="upload-section" id="firstUploadArea">
         <h2>Step 1: Upload First Invoice (Elnät or Elhandel)</h2>
-        <label for="fileUploader">Invoice File 1:</label>
-        <input
-          type="hidden"
-          role="uploadcare-uploader"
-          data-public-key="09afefa1e6cd77c85643" <!-- !!! REPLACE THIS VALUE !!! -->
-          data-images-only="false"
-          data-input-accept-types=".pdf, image/*"
-          id="fileUploader"
-        />
+        <label>Invoice File 1:</label>
+        <!-- Widget button will be inserted here by JavaScript -->
         <div id="statusMessage" class="hidden"></div>
     </div>
 
     <!-- Section for Second Invoice Upload - Initially Hidden -->
     <div class="upload-section hidden" id="secondUploadArea">
         <h2>Step 2: Upload Second Invoice (Elnät or Elhandel)</h2>
-        <label for="secondFileUploader">Invoice File 2:</label>
-        <input
-          type="hidden"
-          role="uploadcare-uploader"
-          data-public-key="09afefa1e6cd77c85643" <!-- !!! REPLACE THIS VALUE !!! -->
-          data-images-only="false"
-          data-input-accept-types=".pdf, image/*"
-          id="secondFileUploader"
-        />
+        <label>Invoice File 2:</label>
+        <!-- Widget button will be inserted here by JavaScript -->
          <div id="secondUploadStatus" class="hidden"></div>
     </div>
 
@@ -99,124 +85,152 @@
         const resultsTableBody = document.querySelector('#resultsTable tbody');
         const invoiceIdInput = document.getElementById('invoiceIdInput');
         const checkStatusBtn = document.getElementById('checkStatusBtn');
-        const checkStatusMessageDiv = document.getElementById('checkStatusMessage'); // Specific status for check
+        const checkStatusMessageDiv = document.getElementById('checkStatusMessage');
 
-        // --- Initialize Widgets ---
-        const widget = uploadcare.Widget('#fileUploader');
-        const secondWidget = uploadcare.Widget('#secondFileUploader'); // Initialize second widget
+        // --- Create and Insert Widgets Programmatically ---
+        // Wait for Uploadcare script to be ready
+        uploadcare.ready(() => {
+            console.log("Uploadcare ready, initializing widgets.");
 
-        // --- Widget 1 Handling (First Invoice) ---
-        widget.onUploadComplete(fileInfo => {
-            console.log("Widget 1: Uploadcare success:", fileInfo);
-            statusMessageDiv.textContent = 'Upload successful via widget! Sending to backend...';
-            statusMessageDiv.className = ''; // Make visible
-            statusMessageDiv.style.backgroundColor = '#e9ecef';
+            // Create the first widget instance and append its button
+            const widgetElement = uploadcare.Widget(); // Create instance
+            widgetElement.inputElement = document.createElement('input'); // Create a hidden input for it internally
+            widgetElement.inputElement.setAttribute('type', 'hidden');
+            widgetElement.inputElement.setAttribute('role', 'uploadcare-uploader');
+            widgetElement.inputElement.setAttribute('data-public-key', '09afefa1e6cd77c85643'); /* !!! ADD YOUR KEY HERE !!! */
+            widgetElement.inputElement.setAttribute('data-images-only', 'false');
+            widgetElement.inputElement.setAttribute('data-input-accept-types', '.pdf, image/*');
+            // Insert the hidden input *before* the status message div within the firstUploadArea
+            firstUploadArea.insertBefore(widgetElement.inputElement, statusMessageDiv);
+            console.log("First widget created and input inserted.");
 
-            // Reset second upload area in case of re-uploading first file
-            secondUploadArea.classList.add('hidden');
-            secondUploadStatusDiv.classList.add('hidden');
-            currentInvoiceId = null;
 
-            // Call API to create the initial record
-            fetch('/api/submit-invoice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', },
-                body: JSON.stringify({ fileInfo: {
-                    uuid: fileInfo.uuid, cdnUrl: fileInfo.cdnUrl, name: fileInfo.name, size: fileInfo.size
-                } }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Widget 1: Backend response:', data);
-                if (data.success && data.invoiceId) {
-                    currentInvoiceId = data.invoiceId; // Store the ID
-                    statusMessageDiv.textContent = `First invoice (Elnät/Elhandel) uploaded! ID: ${currentInvoiceId}. Please upload the second invoice below.`;
-                    statusMessageDiv.style.backgroundColor = '#d4edda';
-                    secondUploadArea.classList.remove('hidden'); // Show the second upload section
-                    invoiceIdInput.value = currentInvoiceId; // Pre-fill check status input
-                } else {
-                    currentInvoiceId = null;
-                    statusMessageDiv.textContent = 'Error creating record on backend. Please try again. ' + (data.message || '');
-                    statusMessageDiv.style.backgroundColor = '#f8d7da';
-                }
-            })
-            .catch(error => {
-                currentInvoiceId = null;
-                console.error('Widget 1: Error sending to backend:', error);
-                statusMessageDiv.textContent = 'Network error sending data to backend. Please check connection and try again.';
-                statusMessageDiv.style.backgroundColor = '#f8d7da';
-            });
-        });
+            // Create the second widget instance and append its button
+            const secondWidgetElement = uploadcare.Widget(); // Create instance
+            secondWidgetElement.inputElement = document.createElement('input'); // Create a hidden input for it internally
+            secondWidgetElement.inputElement.setAttribute('type', 'hidden');
+            secondWidgetElement.inputElement.setAttribute('role', 'uploadcare-uploader');
+            secondWidgetElement.inputElement.setAttribute('data-public-key', '09afefa1e6cd77c85643'); /* !!! ADD YOUR KEY HERE !!! */
+            secondWidgetElement.inputElement.setAttribute('data-images-only', 'false');
+            secondWidgetElement.inputElement.setAttribute('data-input-accept-types', '.pdf, image/*');
+            // Insert the hidden input *before* the second status message div within secondUploadArea
+            secondUploadArea.insertBefore(secondWidgetElement.inputElement, secondUploadStatusDiv);
+            console.log("Second widget created and input inserted.");
 
-        widget.onChange(file => { // Status during first upload
-             if (file) {
-                statusMessageDiv.textContent = 'Uploading File 1...';
-                statusMessageDiv.className = '';
+
+            // --- Widget 1 Handling (First Invoice) ---
+             widgetElement.onUploadComplete(fileInfo => { // Use widgetElement instance
+                console.log("Widget 1: Uploadcare success:", fileInfo);
+                statusMessageDiv.textContent = 'Upload successful via widget! Sending to backend...';
+                statusMessageDiv.className = ''; // Make visible
                 statusMessageDiv.style.backgroundColor = '#e9ecef';
-                secondUploadArea.classList.add('hidden'); // Hide second part if first changes
-                resultsAreaDiv.className = 'hidden';
-                checkStatusMessageDiv.className = 'hidden';
-             } else {
-                statusMessageDiv.className = 'hidden';
-             }
-        });
 
+                // Reset second upload area in case of re-uploading first file
+                secondUploadArea.classList.add('hidden');
+                secondUploadStatusDiv.classList.add('hidden');
+                currentInvoiceId = null;
 
-        // --- Widget 2 Handling (Second Invoice) ---
-        secondWidget.onUploadComplete(secondFileInfo => {
-            console.log("Widget 2: Uploadcare success:", secondFileInfo);
-            secondUploadStatusDiv.textContent = 'Second file upload successful! Linking to first invoice...';
-            secondUploadStatusDiv.className = ''; // Make visible
-            secondUploadStatusDiv.style.backgroundColor = '#e9ecef';
-
-            if (!currentInvoiceId) {
-                 console.error("Widget 2: Error - currentInvoiceId is missing.");
-                 secondUploadStatusDiv.textContent = 'Error: Cannot link second invoice, the ID from the first upload is missing. Please upload the first file again.';
-                 secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
-                 return;
-            }
-
-            // Call NEW API to link the second file
-            fetch('/api/link-second-invoice', { // <--- NEW ENDPOINT
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', },
-                body: JSON.stringify({
-                    originalInvoiceId: currentInvoiceId, // Send the stored ID
-                    secondFileInfo: { // Send info about the second file
-                         uuid: secondFileInfo.uuid, cdnUrl: secondFileInfo.cdnUrl, name: secondFileInfo.name, size: secondFileInfo.size
+                // Call API to create the initial record
+                fetch('/api/submit-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', },
+                    body: JSON.stringify({ fileInfo: {
+                        uuid: fileInfo.uuid, cdnUrl: fileInfo.cdnUrl, name: fileInfo.name, size: fileInfo.size
+                    } }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Widget 1: Backend response:', data);
+                    if (data.success && data.invoiceId) {
+                        currentInvoiceId = data.invoiceId; // Store the ID
+                        statusMessageDiv.textContent = `First invoice (Elnät/Elhandel) uploaded! ID: ${currentInvoiceId}. Please upload the second invoice below.`;
+                        statusMessageDiv.style.backgroundColor = '#d4edda';
+                        secondUploadArea.classList.remove('hidden'); // Show the second upload section
+                        invoiceIdInput.value = currentInvoiceId; // Pre-fill check status input
+                    } else {
+                        currentInvoiceId = null;
+                        statusMessageDiv.textContent = 'Error creating record on backend. Please try again. ' + (data.message || '');
+                        statusMessageDiv.style.backgroundColor = '#f8d7da';
                     }
-                }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Widget 2: Backend response:', data);
-                if (data.success) {
-                    secondUploadStatusDiv.textContent = `Second invoice linked successfully! Both files received for ID: ${currentInvoiceId}. Processing will begin shortly.`;
-                    secondUploadStatusDiv.style.backgroundColor = '#d4edda';
-                    // Optionally hide the second upload area again now it's done
-                    // secondUploadArea.classList.add('hidden');
-                } else {
-                    secondUploadStatusDiv.textContent = 'Error linking second invoice on backend. Please try uploading the second file again. ' + (data.message || '');
-                    secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
-                }
-            })
-            .catch(error => {
-                console.error('Widget 2: Error sending to backend:', error);
-                secondUploadStatusDiv.textContent = 'Network error linking second invoice. Please check connection and try again.';
-                secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
+                })
+                .catch(error => {
+                    currentInvoiceId = null;
+                    console.error('Widget 1: Error sending to backend:', error);
+                    statusMessageDiv.textContent = 'Network error sending data to backend. Please check connection and try again.';
+                    statusMessageDiv.style.backgroundColor = '#f8d7da';
+                });
             });
-        });
 
-         secondWidget.onChange(file => { // Status during second upload
-             if (file) {
-                secondUploadStatusDiv.textContent = 'Uploading File 2...';
-                secondUploadStatusDiv.className = '';
+            widgetElement.onChange(file => { // Status during first upload - Use widgetElement instance
+                 if (file) {
+                    statusMessageDiv.textContent = 'Uploading File 1...';
+                    statusMessageDiv.className = '';
+                    statusMessageDiv.style.backgroundColor = '#e9ecef';
+                    secondUploadArea.classList.add('hidden'); // Hide second part if first changes
+                    resultsAreaDiv.className = 'hidden';
+                    checkStatusMessageDiv.className = 'hidden';
+                 } else {
+                    statusMessageDiv.className = 'hidden';
+                 }
+            });
+
+
+            // --- Widget 2 Handling (Second Invoice) ---
+            secondWidgetElement.onUploadComplete(secondFileInfo => { // Use secondWidgetElement instance
+                console.log("Widget 2: Uploadcare success:", secondFileInfo);
+                secondUploadStatusDiv.textContent = 'Second file upload successful! Linking to first invoice...';
+                secondUploadStatusDiv.className = ''; // Make visible
                 secondUploadStatusDiv.style.backgroundColor = '#e9ecef';
-             } else {
-                 secondUploadStatusDiv.className = 'hidden';
-             }
-        });
 
+                if (!currentInvoiceId) {
+                     console.error("Widget 2: Error - currentInvoiceId is missing.");
+                     secondUploadStatusDiv.textContent = 'Error: Cannot link second invoice, the ID from the first upload is missing. Please upload the first file again.';
+                     secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
+                     return;
+                }
+
+                // Call NEW API to link the second file
+                fetch('/api/link-second-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', },
+                    body: JSON.stringify({
+                        originalInvoiceId: currentInvoiceId,
+                        secondFileInfo: {
+                             uuid: secondFileInfo.uuid, cdnUrl: secondFileInfo.cdnUrl, name: secondFileInfo.name, size: secondFileInfo.size
+                        }
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Widget 2: Backend response:', data);
+                    if (data.success) {
+                        secondUploadStatusDiv.textContent = `Second invoice linked successfully! Both files received for ID: ${currentInvoiceId}. Processing will begin shortly.`;
+                        secondUploadStatusDiv.style.backgroundColor = '#d4edda';
+                        // Optionally hide the second upload area again now it's done
+                        // secondUploadArea.classList.add('hidden');
+                    } else {
+                        secondUploadStatusDiv.textContent = 'Error linking second invoice on backend. Please try uploading the second file again. ' + (data.message || '');
+                        secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
+                    }
+                })
+                .catch(error => {
+                    console.error('Widget 2: Error sending to backend:', error);
+                    secondUploadStatusDiv.textContent = 'Network error linking second invoice. Please check connection and try again.';
+                    secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
+                });
+            });
+
+             secondWidgetElement.onChange(file => { // Status during second upload - Use secondWidgetElement instance
+                 if (file) {
+                    secondUploadStatusDiv.textContent = 'Uploading File 2...';
+                    secondUploadStatusDiv.className = '';
+                    secondUploadStatusDiv.style.backgroundColor = '#e9ecef';
+                 } else {
+                     secondUploadStatusDiv.className = 'hidden';
+                 }
+            });
+
+        }); // End of uploadcare.ready()
 
         // --- Check Status Handling (No Changes Needed Here) ---
         checkStatusBtn.addEventListener('click', () => {
@@ -234,7 +248,6 @@
             fetch(`/api/get-summary?invoiceId=${invoiceIdToCheck}`)
             .then(response => {
                 if (!response.ok) {
-                     // Handle 404 specifically maybe
                     if (response.status === 404) {
                         throw new Error(`Invoice ID ${invoiceIdToCheck} not found.`);
                     }
@@ -250,7 +263,7 @@
                     resultsAreaDiv.className = ''; // Make results visible
                     resultsTableBody.innerHTML = '';
 
-                    const displayData = { /* ... (same as before) ... */
+                    const displayData = {
                          'Facility Address': data.simplified_address,
                          'Electricity Retailer': data.simplified_retailer,
                          'Grid Operator': data.simplified_gridop,
