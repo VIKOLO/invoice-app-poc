@@ -1,0 +1,15 @@
+{
+    "name": "invoice-interpreter-poc",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Proof of concept for electricity invoice interpretation app.",
+    "scripts": {
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "dependencies": {
+      "airtable": "^0.12.2"
+    },
+    "engines": {
+      "node": ">=18.x"
+    }
+  }
