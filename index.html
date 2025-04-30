@@ -1,44 +1,179 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Your Invoices</title>
-    <!-- CSS Styles moved to head for better practice -->
+    <title>Fakturaöversikt</title>
+    <!-- 1. Uploadcare Widget Script -->
+    <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js" charset="utf-8"></script>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+        /* === Grafisk Profil === */
+        :root {
+            --pencil-grey: #2B2B2B;
+            --air-force-blue: #2F4A66; /* Används ej just nu */
+            --surfie-green: #017E7A; /* Används för button hover */
+            --energetic-teal: #00FF84;
+            --light-text: #EFEFEF;
+            --link-color: #00FF84; /* Använder teal för länkar också */
+            --border-color: #555;
+            --table-header-bg: #404040;
+            --success-bg: #2a5c3d; /* Mörkare grön för success på mörk bakgrund */
+            --error-bg: #6c2a2a; /* Mörkare röd för error på mörk bakgrund */
+            --pending-bg: #6c5e2a; /* Mörkare gul för pending på mörk bakgrund */
+            --neutral-bg: #444;
+        }
+
+        body {
+            font-family: sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: var(--pencil-grey); /* Mörk bakgrund */
+            color: var(--light-text); /* Ljus text */
+        }
+        h1, h2, h3 { color: var(--light-text); } /* Säkerställ ljus text för rubriker */
+        p, label { color: var(--light-text); } /* Säkerställ ljus text för paragrafer/labels */
+        a { color: var(--link-color); }
+
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"] { width: 90%; max-width: 400px; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; margin-top: 5px;}
-        button:hover { background-color: #0056b3; }
+        input[type="text"] {
+            width: 90%;
+            max-width: 400px;
+            padding: 10px; /* Lite mer padding */
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--neutral-bg); /* Mörkare input */
+            color: var(--light-text); /* Ljus text i input */
+            font-size: 1em;
+        }
+        button {
+            padding: 10px 20px; /* Lite större */
+            background-color: var(--energetic-teal); /* Primär accentfärg */
+            color: var(--pencil-grey); /* Mörk text för kontrast */
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 5px;
+            font-weight: bold; /* Tydligare text */
+            font-size: 1em;
+            transition: background-color 0.2s ease; /* Mjuk övergång */
+        }
+        button:hover {
+            background-color: var(--surfie-green); /* Mörkare nyans vid hover */
+            color: var(--light-text); /* Ljus text vid hover */
+        }
+        /* Specifik stil för Uploadcare-knappen om den skapas automatiskt */
+        .uploadcare--widget__button {
+             background-color: var(--energetic-teal) !important;
+             color: var(--pencil-grey) !important;
+             border-radius: 4px !important;
+             padding: 10px 20px !important;
+             font-weight: bold !important;
+             font-size: 1em !important;
+        }
+        .uploadcare--widget__button:hover {
+             background-color: var(--surfie-green) !important;
+             color: var(--light-text) !important;
+        }
         .uploadcare--widget { margin-bottom: 15px; }
-        #statusMessage, #secondUploadStatus, #checkStatusMessage { margin-top: 15px; padding: 10px; border-radius: 4px; background-color: #e9ecef; }
-        #resultsTable { margin-top: 20px; border-collapse: collapse; width: 100%; max-width: 600px; }
-        #resultsTable th, #resultsTable td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        #resultsTable th { background-color: #f2f2f2; }
+
+        #statusMessage, #secondUploadStatus, #checkStatusMessage {
+             margin-top: 15px;
+             padding: 10px 15px; /* Lite mer padding */
+             border-radius: 4px;
+             background-color: var(--neutral-bg); /* Neutral bakgrund initialt */
+             color: var(--light-text);
+             border: 1px solid var(--border-color); /* Tydligare kant */
+        }
+        /* Specifika bakgrunder för status */
+        .status-success { background-color: var(--success-bg); border-color: var(--energetic-teal); }
+        .status-error { background-color: var(--error-bg); border-color: #ff6b6b; }
+        .status-pending { background-color: var(--pending-bg); border-color: #ffed8a; }
+
+        #resultsTable {
+             margin-top: 20px;
+             border-collapse: collapse;
+             width: 100%;
+             max-width: 700px; /* Lite bredare */
+             border: 1px solid var(--border-color); /* Kant runt tabellen */
+        }
+        #resultsTable th, #resultsTable td {
+             border: 1px solid var(--border-color);
+             padding: 10px 12px; /* Lite mer padding */
+             text-align: left;
+             color: var(--light-text); /* Säkerställ ljus text */
+        }
+        #resultsTable th {
+            background-color: var(--table-header-bg); /* Mörkare header */
+            font-weight: bold;
+         }
+
         .hidden { display: none; }
-        .upload-section { margin-bottom: 25px; padding: 15px; border: 1px solid #eee; border-radius: 5px; }
-        hr { margin: 30px 0; }
+        .upload-section {
+            margin-bottom: 30px; /* Mer luft */
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px; /* Mjukare hörn */
+            background-color: rgba(255, 255, 255, 0.03); /* Väldigt svag ljusare ton */
+         }
+        hr { margin: 40px 0; border-color: var(--border-color); }
+
+         /* Styling för den framhävda siffran */
+         #keyMetricArea {
+             text-align: center;
+             margin-bottom: 30px;
+             padding: 20px;
+             background-color: var(--neutral-bg);
+             border-radius: 8px;
+             border: 1px solid var(--border-color);
+         }
+         #keyMetricArea h3 {
+             margin-top: 0;
+             margin-bottom: 5px;
+             font-size: 1.1em;
+             color: var(--light-text);
+             font-weight: normal;
+         }
+         #avgPriceValue {
+             color: var(--energetic-teal); /* Accentfärg */
+             font-size: 2.8em; /* Större text */
+             font-weight: bold;
+             display: block;
+             margin: 5px 0;
+         }
+         #avgPriceUnit {
+             font-size: 1em;
+             color: #aaa; /* Lite nedtonad enhet */
+         }
+         #logo {
+             max-width: 200px; /* Justera vid behov */
+             height: auto;
+             display: block;
+             margin: 0 auto 30px auto; /* Centrera och lägg marginal */
+         }
+
     </style>
-    <!-- Uploadcare script is now loaded later, at the end of body -->
 </head>
 <body>
+    <!-- Lägg till logotypen här -->
+    <img id="logo" src="./logo.png" alt="Sourceful Energy Logo">
 
-    <h1>Upload Your Invoices</h1>
-    <p>Please upload your electricity invoices (Elnät and Elhandel) for the same period below.</p>
+    <h1>Din Fakturaöversikt</h1>
+    <p>Ladda upp dina elnäts- och elhandelsfakturor för samma period nedan för att få en enkel sammanställning.</p>
 
     <!-- Section for First Invoice Upload -->
     <div class="upload-section" id="firstUploadArea">
-        <h2>Step 1: Upload First Invoice (Elnät or Elhandel)</h2>
-        <label>Invoice File 1:</label>
+        <h2>Steg 1: Ladda upp första fakturan (Elnät eller Elhandel)</h2>
+        <label>Faktura fil 1:</label>
         <div id="widgetContainer1"></div> <!-- Container for the first widget button -->
         <div id="statusMessage" class="hidden"></div>
     </div>
 
     <!-- Section for Second Invoice Upload - Initially Hidden -->
     <div class="upload-section hidden" id="secondUploadArea">
-        <h2>Step 2: Upload Second Invoice (Elnät or Elhandel)</h2>
-        <label>Invoice File 2:</label>
+        <h2>Steg 2: Ladda upp andra fakturan (Elnät eller Elhandel)</h2>
+        <label>Faktura fil 2:</label>
          <div id="widgetContainer2"></div> <!-- Container for the second widget button -->
          <div id="secondUploadStatus" class="hidden"></div>
     </div>
@@ -47,18 +182,27 @@
 
     <!-- Section for Checking Status - Always Visible -->
     <div id="checkStatusSection">
-      <h2>Check Invoice Status</h2>
-      <label for="invoiceIdInput">Enter Invoice ID (from Step 1):</label>
-      <input type="text" id="invoiceIdInput" placeholder="Enter ID received after first upload">
-      <button id="checkStatusBtn">Check Status</button>
+      <h2>Kontrollera Fakturastatus</h2>
+      <label for="invoiceIdInput">Ange Faktura-ID (från Steg 1):</label>
+      <input type="text" id="invoiceIdInput" placeholder="Ange ID mottaget efter första uppladdningen">
+      <button id="checkStatusBtn">Kontrollera Status</button>
        <div id="checkStatusMessage" class="hidden"></div>
+
+       <!-- Framhävd siffra visas FÖRE detaljtabellen -->
+       <div id="keyMetricArea" class="hidden">
+            <h3>Din Totalkostnad per kWh</h3>
+            <span id="avgPriceValue">--</span>
+            <span id="avgPriceUnit">SEK/kWh</span>
+       </div>
+
+       <!-- Detaljerad resultattabell -->
        <div id="resultsArea" class="hidden">
-           <h3>Invoice Summary</h3>
+           <h3>Detaljerad Sammanställning</h3>
            <table id="resultsTable">
                <thead>
                    <tr>
-                       <th>Item</th>
-                       <th>Value</th>
+                       <th>Post</th>
+                       <th>Värde</th>
                    </tr>
                </thead>
                <tbody>
@@ -69,61 +213,65 @@
     </div>
 
     <!-- Scripts moved to the end of body -->
-    <!-- 1. Load Uploadcare Widget Script FIRST -->
     <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js" charset="utf-8"></script>
-
-    <!-- 2. Load Your Inline Script AFTER Uploadcare -->
     <script>
         // --- Global Variable ---
         let currentInvoiceId = null;
 
         // --- DOM Elements ---
-        // Get elements after they have been parsed by the browser
         const firstUploadArea = document.getElementById('firstUploadArea');
         const secondUploadArea = document.getElementById('secondUploadArea');
         const statusMessageDiv = document.getElementById('statusMessage');
         const secondUploadStatusDiv = document.getElementById('secondUploadStatus');
         const widgetContainer1 = document.getElementById('widgetContainer1');
-        const widgetContainer2 = document.getElementById('widgetContainer2'); // Get second container
+        const widgetContainer2 = document.getElementById('widgetContainer2');
 
         const resultsAreaDiv = document.getElementById('resultsArea');
+        const keyMetricAreaDiv = document.getElementById('keyMetricArea'); // Nytt element
+        const avgPriceValueSpan = document.getElementById('avgPriceValue'); // Nytt element
         const resultsTableBody = document.querySelector('#resultsTable tbody');
         const invoiceIdInput = document.getElementById('invoiceIdInput');
         const checkStatusBtn = document.getElementById('checkStatusBtn');
         const checkStatusMessageDiv = document.getElementById('checkStatusMessage');
 
+        // --- Helper to set status message style ---
+        function setStatusStyle(element, type, message) {
+            element.textContent = message;
+            element.className = ''; // Remove hidden
+            if (type === 'success') element.classList.add('status-success');
+            else if (type === 'error') element.classList.add('status-error');
+            else if (type === 'pending') element.classList.add('status-pending');
+            else element.classList.add('status-neutral'); // Neutral/default
+        }
+
         // --- Create Widgets (Assume uploadcare object is available now) ---
         console.log("Attempting to create widgets...");
 
-        // Create input for the first widget
         const widgetInputElement1 = document.createElement('input');
         widgetInputElement1.setAttribute('type', 'hidden');
         widgetInputElement1.setAttribute('role', 'uploadcare-uploader');
         widgetInputElement1.setAttribute('data-public-key', '09afefa1e6cd77c85643'); /* !!! ADD YOUR KEY HERE !!! */
         widgetInputElement1.setAttribute('data-images-only', 'false');
         widgetInputElement1.setAttribute('data-input-accept-types', '.pdf, image/*');
-        widgetContainer1.appendChild(widgetInputElement1); // Append hidden input to container
-        const widgetElement = uploadcare.Widget(widgetInputElement1); // Initialize widget on the input
+        widgetContainer1.appendChild(widgetInputElement1);
+        const widgetElement = uploadcare.Widget(widgetInputElement1);
         console.log("First widget initialized.");
 
-        // Create input for the second widget
         const widgetInputElement2 = document.createElement('input');
         widgetInputElement2.setAttribute('type', 'hidden');
         widgetInputElement2.setAttribute('role', 'uploadcare-uploader');
         widgetInputElement2.setAttribute('data-public-key', '09afefa1e6cd77c85643'); /* !!! ADD YOUR KEY HERE !!! */
         widgetInputElement2.setAttribute('data-images-only', 'false');
         widgetInputElement2.setAttribute('data-input-accept-types', '.pdf, image/*');
-        widgetContainer2.appendChild(widgetInputElement2); // Append hidden input to container
-        const secondWidgetElement = uploadcare.Widget(widgetInputElement2); // Initialize widget on the input
+        widgetContainer2.appendChild(widgetInputElement2);
+        const secondWidgetElement = uploadcare.Widget(widgetInputElement2);
         console.log("Second widget initialized.");
 
 
         // --- Widget 1 Handling (First Invoice) ---
          widgetElement.onUploadComplete(fileInfo => {
             console.log("Widget 1: Uploadcare success:", fileInfo);
-            statusMessageDiv.textContent = 'Upload successful via widget! Sending to backend...';
-            statusMessageDiv.className = '';
-            statusMessageDiv.style.backgroundColor = '#e9ecef';
+            setStatusStyle(statusMessageDiv, 'neutral', 'Uppladdning lyckades! Skickar till backend...');
 
             secondUploadArea.classList.add('hidden');
             secondUploadStatusDiv.classList.add('hidden');
@@ -141,31 +289,27 @@
                 console.log('Widget 1: Backend response:', data);
                 if (data.success && data.invoiceId) {
                     currentInvoiceId = data.invoiceId;
-                    statusMessageDiv.textContent = `First invoice (Elnät/Elhandel) uploaded! ID: ${currentInvoiceId}. Please upload the second invoice below.`;
-                    statusMessageDiv.style.backgroundColor = '#d4edda';
+                    setStatusStyle(statusMessageDiv, 'success', `Första fakturan (Elnät/Elhandel) uppladdad! ID: ${currentInvoiceId}. Ladda nu upp den andra fakturan nedan.`);
                     secondUploadArea.classList.remove('hidden');
                     invoiceIdInput.value = currentInvoiceId;
                 } else {
                     currentInvoiceId = null;
-                    statusMessageDiv.textContent = 'Error creating record on backend. Please try again. ' + (data.message || '');
-                    statusMessageDiv.style.backgroundColor = '#f8d7da';
+                    setStatusStyle(statusMessageDiv, 'error', 'Fel vid skapande av ärende hos backend. Försök igen. ' + (data.message || ''));
                 }
             })
             .catch(error => {
                 currentInvoiceId = null;
                 console.error('Widget 1: Error sending to backend:', error);
-                statusMessageDiv.textContent = 'Network error sending data to backend. Please check connection and try again.';
-                statusMessageDiv.style.backgroundColor = '#f8d7da';
+                setStatusStyle(statusMessageDiv, 'error', 'Nätverksfel vid kommunikation med backend. Kontrollera anslutning och försök igen.');
             });
         });
 
         widgetElement.onChange(file => {
              if (file) {
-                statusMessageDiv.textContent = 'Uploading File 1...';
-                statusMessageDiv.className = '';
-                statusMessageDiv.style.backgroundColor = '#e9ecef';
+                setStatusStyle(statusMessageDiv, 'neutral', 'Laddar upp Fil 1...');
                 secondUploadArea.classList.add('hidden');
-                resultsAreaDiv.className = 'hidden';
+                resultsAreaDiv.className = 'hidden'; // Göm resultat när ny uppladdning startar
+                 keyMetricAreaDiv.className = 'hidden'; // Göm nyckeltal
                 checkStatusMessageDiv.className = 'hidden';
              } else {
                 statusMessageDiv.className = 'hidden';
@@ -176,14 +320,11 @@
         // --- Widget 2 Handling (Second Invoice) ---
         secondWidgetElement.onUploadComplete(secondFileInfo => {
             console.log("Widget 2: Uploadcare success:", secondFileInfo);
-            secondUploadStatusDiv.textContent = 'Second file upload successful! Linking to first invoice...';
-            secondUploadStatusDiv.className = '';
-            secondUploadStatusDiv.style.backgroundColor = '#e9ecef';
+            setStatusStyle(secondUploadStatusDiv, 'neutral', 'Uppladdning av fil 2 lyckades! Länkar till första fakturan...');
 
             if (!currentInvoiceId) {
                  console.error("Widget 2: Error - currentInvoiceId is missing.");
-                 secondUploadStatusDiv.textContent = 'Error: Cannot link second invoice, the ID from the first upload is missing. Please upload the first file again.';
-                 secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
+                 setStatusStyle(secondUploadStatusDiv, 'error', 'Fel: Kan inte länka fil 2, ID från första uppladdningen saknas. Ladda upp fil 1 igen.');
                  return;
             }
 
@@ -201,95 +342,95 @@
             .then(data => {
                 console.log('Widget 2: Backend response:', data);
                 if (data.success) {
-                    secondUploadStatusDiv.textContent = `Second invoice linked successfully! Both files received for ID: ${currentInvoiceId}. Processing will begin shortly.`;
-                    secondUploadStatusDiv.style.backgroundColor = '#d4edda';
+                    setStatusStyle(secondUploadStatusDiv, 'success', `Fil 2 länkad! Båda filerna mottagna för ID: ${currentInvoiceId}. Bearbetning påbörjas snart.`);
                 } else {
-                    secondUploadStatusDiv.textContent = 'Error linking second invoice on backend. Please try uploading the second file again. ' + (data.message || '');
-                    secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
+                    setStatusStyle(secondUploadStatusDiv, 'error', 'Fel vid länkning av fil 2 hos backend. Försök ladda upp fil 2 igen. ' + (data.message || ''));
                 }
             })
             .catch(error => {
                 console.error('Widget 2: Error sending to backend:', error);
-                secondUploadStatusDiv.textContent = 'Network error linking second invoice. Please check connection and try again.';
-                secondUploadStatusDiv.style.backgroundColor = '#f8d7da';
+                 setStatusStyle(secondUploadStatusDiv, 'error', 'Nätverksfel vid länkning av fil 2. Kontrollera anslutning och försök igen.');
             });
         });
 
          secondWidgetElement.onChange(file => {
              if (file) {
-                secondUploadStatusDiv.textContent = 'Uploading File 2...';
-                secondUploadStatusDiv.className = '';
-                secondUploadStatusDiv.style.backgroundColor = '#e9ecef';
+                setStatusStyle(secondUploadStatusDiv, 'neutral', 'Laddar upp Fil 2...');
              } else {
                  secondUploadStatusDiv.className = 'hidden';
              }
         });
 
 
-        // --- Check Status Handling (No Changes Needed Here) ---
+        // --- Check Status Handling ---
         checkStatusBtn.addEventListener('click', () => {
             const invoiceIdToCheck = invoiceIdInput.value.trim();
             if (!invoiceIdToCheck) {
-                alert('Please enter an Invoice ID (from Step 1).');
+                alert('Ange ett Faktura-ID (från Steg 1).');
                 return;
             }
 
-            checkStatusMessageDiv.textContent = `Checking status for ID: ${invoiceIdToCheck}...`;
-            checkStatusMessageDiv.className = '';
-            checkStatusMessageDiv.style.backgroundColor = '#e9ecef';
-            resultsAreaDiv.className = 'hidden';
+            setStatusStyle(checkStatusMessageDiv, 'neutral', `Kontrollerar status för ID: ${invoiceIdToCheck}...`);
+            resultsAreaDiv.className = 'hidden'; // Göm gamla resultat
+            keyMetricAreaDiv.className = 'hidden'; // Göm gamla nyckeltal
 
             fetch(`/api/get-summary?invoiceId=${invoiceIdToCheck}`)
             .then(response => {
                 if (!response.ok) {
-                    if (response.status === 404) {
-                        throw new Error(`Invoice ID ${invoiceIdToCheck} not found.`);
-                    }
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    if (response.status === 404) throw new Error(`Faktura-ID ${invoiceIdToCheck} hittades inte.`);
+                    throw new Error(`HTTP-fel! Status: ${response.status}`);
                 }
                 return response.json();
              })
             .then(data => {
                 console.log('Status check response:', data);
-                checkStatusMessageDiv.textContent = `Status for ${invoiceIdToCheck}: ${data.status}`;
+                setStatusStyle(checkStatusMessageDiv, 'neutral', `Status för ${invoiceIdToCheck}: ${data.status}`); // Initial status update
 
                 if (data.status === 'Processed') {
-                    resultsAreaDiv.className = '';
+                     // Uppdatera statusmeddelandets stil
+                     setStatusStyle(checkStatusMessageDiv, 'success', `Status för ${invoiceIdToCheck}: ${data.status}`);
+
+                     // Visa nyckeltal
+                     keyMetricAreaDiv.classList.remove('hidden');
+                     avgPriceValueSpan.textContent = data.simplified_avgprice?.toFixed(3) ?? '--'; // Visa snittpris
+
+                    // Visa detaljtabell (men ta bort snittpris härifrån)
+                    resultsAreaDiv.classList.remove('hidden');
                     resultsTableBody.innerHTML = '';
 
                     const displayData = {
-                         'Facility Address': data.simplified_address,
-                         'Electricity Retailer': data.simplified_retailer,
-                         'Grid Operator': data.simplified_gridop,
+                         'Anläggningsadress': data.simplified_address,
+                         'Elhandelsbolag': data.simplified_retailer,
+                         'Elnätsbolag': data.simplified_gridop,
                          'Period': data.simplified_period,
-                         'Total Cost (SEK)': data.simplified_totalcost?.toFixed(2),
-                         'Used Electricity (kWh)': data.simplified_usedkwh?.toFixed(2),
-                         'Sold Electricity (kWh)': data.simplified_soldkwh?.toFixed(2),
-                         'Average Price (SEK/kWh)': data.simplified_avgprice?.toFixed(3),
-                         'Fixed Cost (SEK/month)': data.simplified_fixedcost?.toFixed(2)
+                         'Total Kostnad (SEK)': data.simplified_totalcost?.toFixed(2),
+                         'Använd El (kWh)': data.simplified_usedkwh?.toFixed(2),
+                         'Såld El (kWh)': data.simplified_soldkwh?.toFixed(2),
+                         // 'Snittpris (SEK/kWh)': data.simplified_avgprice?.toFixed(3), // Borttagen, visas ovanför
+                         'Fast Kostnad (SEK/mån)': data.simplified_fixedcost?.toFixed(2)
                      };
 
                     for (const [label, value] of Object.entries(displayData)) {
-                        const row = resultsTableBody.insertRow();
-                        row.insertCell().textContent = label;
-                        row.insertCell().textContent = value !== undefined && value !== null ? value : 'N/A';
+                        if (value !== undefined) { // Lägg bara till rader som har data
+                            const row = resultsTableBody.insertRow();
+                            row.insertCell().textContent = label;
+                            row.insertCell().textContent = value !== null ? value : 'N/A';
+                        }
                     }
-                     checkStatusMessageDiv.style.backgroundColor = '#d4edda';
 
                 } else if (data.status === 'Error') {
-                     checkStatusMessageDiv.style.backgroundColor = '#f8d7da';
+                    setStatusStyle(checkStatusMessageDiv, 'error', `Status för ${invoiceIdToCheck}: Fel vid bearbetning.`);
                 } else if (data.status === 'Not Found') {
-                     checkStatusMessageDiv.style.backgroundColor = '#f8d7da';
+                     setStatusStyle(checkStatusMessageDiv, 'error', `Status för ${invoiceIdToCheck}: Hittades ej.`);
                 }
                  else { // Pending, Processing
-                     checkStatusMessageDiv.style.backgroundColor = '#fff3cd';
+                     setStatusStyle(checkStatusMessageDiv, 'pending', `Status för ${invoiceIdToCheck}: ${data.status}`);
                 }
 
             })
             .catch(error => {
                 console.error('Error checking status:', error);
-                checkStatusMessageDiv.textContent = `Error checking status for ID ${invoiceIdToCheck}. ${error.message}`;
-                checkStatusMessageDiv.style.backgroundColor = '#f8d7da';
+                setStatusStyle(checkStatusMessageDiv, 'error', `Fel vid statuskontroll för ID ${invoiceIdToCheck}. ${error.message}`);
             });
         });
 
