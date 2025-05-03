@@ -53,34 +53,30 @@ export default async function handler(request, response) {
 
         switch (status) {
             case 'Processed':
-                // 8. Return 'Processed' status and ALL Simplified fields found
-                const summaryData = { status: 'Processed' }; // Start with status
-
-                // *** VIKTIGT: Loopa igenom ALLA fält från Airtable ***
+                const summaryData = { status: 'Processed' };
                 for (const key in recordFields) {
-                    // Om fältnamnet i Airtable börjar med "Simplified_"
                     if (key.startsWith('Simplified_')) {
-                        // Skapa ett JSON-nyckelnamn med liten bokstav i början
-                        const jsonKey = key.charAt(0).toLowerCase() + key.slice(1);
-                        // Lägg till fältet och dess värde i svars-JSON:en
-                         summaryData[jsonKey] = recordFields[key];
-                         console.log(`Mapping Airtable field ${key} to JSON key ${jsonKey}`); // Lägg till loggning
+                        // *** KORRIGERING: Konvertera HELA nyckeln till små bokstäver ***
+                        // Exempel: "Simplified_Address" -> "simplified_address"
+                        //         "Simplified_AvgPrice" -> "simplified_avgprice"
+                        //         "Simplified_VariableCostKwh" -> "simplified_variablecostkwh"
+                        const jsonKey = key.toLowerCase(); // Konvertera hela nyckeln till små bokstäver
+                        summaryData[jsonKey] = recordFields[key];
+                        console.log(`Mapping Airtable field ${key} to JSON key ${jsonKey}`);
                     }
                 }
-                // Logga hela objektet som ska skickas tillbaka
                 console.log("Returning summaryData:", summaryData);
                 response.status(200).json(summaryData);
                 break;
 
+            // Resten av switch-satsen är oförändrad...
             case 'Pending':
             case 'Processing':
                 response.status(200).json({ status: 'Processing' });
                 break;
-
             case 'Error':
                 response.status(200).json({ status: 'Error' });
                 break;
-
             default:
                 console.warn(`Record ${invoiceId} has unexpected status: ${status}`);
                 response.status(200).json({ status: 'Unknown' });
@@ -88,7 +84,7 @@ export default async function handler(request, response) {
         }
 
     } catch (error) {
-        // Handle errors (including record not found)
+        // Felhantering oförändrad...
         console.error(`Error fetching record ${invoiceId} from Airtable:`, error);
         if (error.statusCode === 404 || error.message?.includes('NOT_FOUND')) {
              console.log(`Record ${invoiceId} not found.`);
