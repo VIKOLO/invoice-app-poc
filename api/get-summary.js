@@ -42,7 +42,6 @@ export default async function handler(request, response) {
         const base = Airtable.base(baseId);
 
         // 5. Fetch the specific record from Airtable
-        // find() typically fetches all non-empty fields by default
         console.log(`Attempting to fetch record ${invoiceId} from Airtable...`);
         const record = await base(tableName).find(invoiceId);
 
@@ -55,32 +54,30 @@ export default async function handler(request, response) {
         switch (status) {
             case 'Processed':
                 // 8. Return 'Processed' status and ALL Simplified fields found
-                const summaryData = { status: 'Processed' };
+                const summaryData = { status: 'Processed' }; // Start with status
+
+                // *** VIKTIGT: Loopa igenom ALLA fält från Airtable ***
                 for (const key in recordFields) {
-                    // Include all fields starting with Simplified_
+                    // Om fältnamnet i Airtable börjar med "Simplified_"
                     if (key.startsWith('Simplified_')) {
-                        // Convert Airtable field name (PascalCase) to JSON key name (lowercase)
+                        // Skapa ett JSON-nyckelnamn med liten bokstav i början
                         const jsonKey = key.charAt(0).toLowerCase() + key.slice(1);
+                        // Lägg till fältet och dess värde i svars-JSON:en
                          summaryData[jsonKey] = recordFields[key];
+                         console.log(`Mapping Airtable field ${key} to JSON key ${jsonKey}`); // Lägg till loggning
                     }
                 }
-                // *** Verifiera att det nya fältet kom med (borde ingå i loopen ovan) ***
-                // Om du vill vara extra tydlig kan du lägga till den explicit:
-                // if ('Simplified_VariableCostKwh' in recordFields) {
-                //    summaryData.simplified_variablecostkwh = recordFields.Simplified_VariableCostKwh;
-                // }
-
+                // Logga hela objektet som ska skickas tillbaka
+                console.log("Returning summaryData:", summaryData);
                 response.status(200).json(summaryData);
                 break;
 
             case 'Pending':
             case 'Processing':
-                // 9. Return 'Processing' status
                 response.status(200).json({ status: 'Processing' });
                 break;
 
             case 'Error':
-                // 10. Return 'Error' status
                 response.status(200).json({ status: 'Error' });
                 break;
 
@@ -91,7 +88,7 @@ export default async function handler(request, response) {
         }
 
     } catch (error) {
-        // 6 & 11. Handle potential errors (including record not found)
+        // Handle errors (including record not found)
         console.error(`Error fetching record ${invoiceId} from Airtable:`, error);
         if (error.statusCode === 404 || error.message?.includes('NOT_FOUND')) {
              console.log(`Record ${invoiceId} not found.`);
