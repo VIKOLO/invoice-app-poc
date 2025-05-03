@@ -1,253 +1,277 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Internal Interpretation Tool</title>
+    <title>Internt Tolkningsverktyg</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
-        h1, h2 { margin-bottom: 20px; }
-        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 1em; }
-        button:hover { background-color: #0056b3; }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; }
-        #fetchBtn { margin-bottom: 20px; }
-        #pendingTable { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        #pendingTable th, #pendingTable td { border: 1px solid #ddd; padding: 12px; text-align: left; vertical-align: top; }
-        #pendingTable th { background-color: #f2f2f2; }
-        #pendingTable textarea { width: 95%; min-height: 150px; margin-top: 5px; font-family: monospace; font-size: 0.9em; border: 1px solid #ccc; padding: 5px; }
+        /* === Grafisk Profil (liknande index.html) === */
+        :root {
+             --pencil-grey: #2B2B2B; --air-force-blue: #2F4A66; --surfie-green: #017E7A; --energetic-teal: #00FF84; --light-text: #EFEFEF; --link-color: #00FF84; --border-color: #555; --table-header-bg: #404040; --success-bg: #2a5c3d; --error-bg: #6c2a2a; --pending-bg: #6c5e2a; --neutral-bg: #444;
+        }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; line-height: 1.6; padding: 20px; background-color: var(--pencil-grey); color: var(--light-text); }
+        h1, h2 { margin-bottom: 20px; color: var(--light-text); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        button { padding: 10px 15px; background-color: var(--energetic-teal); color: var(--pencil-grey); border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; font-size: 0.9em; font-weight: bold; transition: background-color 0.2s ease; }
+        button:hover { background-color: var(--surfie-green); color: var(--light-text); }
+        button:disabled { background-color: #cccccc; color: #666; cursor: not-allowed; }
+        /* Knappar för vy-växling */
+        .view-switcher button { background-color: var(--neutral-bg); color: var(--light-text); border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .view-switcher button.active { background-color: var(--surfie-green); border-color: var(--energetic-teal); }
+        .view-switcher button:hover:not(.active) { background-color: var(--border-color); }
+
+        /* Tabell Styling */
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; border: 1px solid var(--border-color); }
+        th, td { border: 1px solid var(--border-color); padding: 10px 12px; text-align: left; vertical-align: top; color: var(--light-text); }
+        th { background-color: var(--table-header-bg); font-weight: bold; }
+        textarea { width: 95%; min-height: 150px; margin-top: 5px; font-family: monospace; font-size: 0.9em; border: 1px solid var(--border-color); padding: 5px; background-color: var(--neutral-bg); color: var(--light-text); }
         .record-id { font-family: monospace; font-size: 0.9em; }
         .submit-status { display: inline-block; margin-left: 10px; font-size: 0.9em; font-style: italic; }
-        #loadingMessage, #errorMessage { margin-top: 15px; padding: 10px; border-radius: 4px; }
-        #loadingMessage { background-color: #e9ecef; }
-        #errorMessage { background-color: #f8d7da; color: #721c24; }
+        td a { color: var(--link-color); display: inline-block; margin-bottom: 3px; }
+        td a:hover { text-decoration: underline; }
+
+        /* Meddelanden */
+        #loadingMessage, #errorMessage { margin: 15px 0; padding: 10px 15px; border-radius: 4px; }
+        #loadingMessage { background-color: var(--neutral-bg); border: 1px solid var(--border-color); }
+        #errorMessage { background-color: var(--error-bg); border: 1px solid #ff6b6b; color: var(--light-text); }
+
+        /* JSON Viewer Modal */
+        #jsonViewerOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        #jsonViewer { background-color: var(--neutral-bg); padding: 25px; border-radius: 8px; max-width: 80%; max-height: 80%; overflow: auto; border: 1px solid var(--border-color); position: relative; }
+        #jsonViewer h3 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        #jsonViewer pre { background-color: var(--pencil-grey); padding: 15px; border-radius: 4px; color: var(--light-text); white-space: pre-wrap; word-wrap: break-word; max-height: 60vh; overflow-y: auto; }
+        #jsonViewer button.close-btn { position: absolute; top: 15px; right: 15px; background: var(--error-bg); padding: 5px 10px; font-size: 0.8em; }
+
         .hidden { display: none; }
-        td a { display: inline-block; margin-bottom: 5px;} /* Style links slightly */
     </style>
 </head>
 <body>
 
-    <h1>Internal Interpretation Tool</h1>
+    <h1>Internt Tolkningsverktyg</h1>
 
-    <button id="fetchBtn">Fetch Pending Invoices</button>
+    <div class="view-switcher">
+        <button id="showPendingBtn" class="active">Visa Väntande</button>
+        <button id="showHistoryBtn">Visa Historik</button>
+    </div>
 
-    <div id="loadingMessage" class="hidden">Loading pending invoices...</div>
+    <div id="loadingMessage" class="hidden">Laddar data...</div>
     <div id="errorMessage" class="hidden"></div>
 
-    <table id="pendingTable">
-        <thead>
-            <tr>
-                <th>Record ID</th>
-                <th>Invoice File(s)</th>
-                <th>Detailed JSON Interpretation</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="pendingBody">
-            <!-- Rows will be inserted here by JavaScript -->
-        </tbody>
-    </table>
+    <!-- Sektion för väntande fakturor -->
+    <div id="pendingSection">
+        <h2>Väntande Fakturor</h2>
+        <table id="pendingTable">
+            <thead>
+                <tr>
+                    <th>Record ID</th>
+                    <th>Invoice File(s)</th>
+                    <th>Användarens E-post</th> <!-- NY KOLUMN -->
+                    <th>Detaljerad JSON Interpretation</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="pendingBody">
+                <!-- Rader för väntande fakturor -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Sektion för historik (dold initialt) -->
+    <div id="historySection" class="hidden">
+        <h2>Bearbetad Historik</h2>
+        <table id="historyTable">
+            <thead>
+                <tr>
+                    <th>Record ID</th>
+                    <th>Användarens E-post</th>
+                    <th>Uppladdad</th>
+                    <th>Snittpris (SEK/kWh)</th> <!-- Lade till för kontext -->
+                    <th>Visa JSON</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody">
+                <!-- Rader för historik -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal för att visa JSON -->
+    <div id="jsonViewerOverlay" class="hidden">
+        <div id="jsonViewer">
+            <button class="close-btn" id="closeJsonViewerBtn">Stäng [X]</button>
+            <h3>Detaljerad JSON</h3>
+            <pre id="jsonContent"></pre>
+        </div>
+    </div>
+
 
     <script>
         // --- Configuration ---
-        // !!! REPLACE THESE PLACEHOLDERS WITH YOUR ACTUAL VALUES !!!
-        const AIRTABLE_BASE_ID = 'appSeVr6NANwirG49';
-        const AIRTABLE_TOKEN = 'patZ2JLQrRLqugVib.af1f9a0d7a3ab595f1d552404fad36ea30a9d1171e58c8103f84b83a67dc9c6b';
-        // !!! --- --- --- --- --- --- --- --- --- --- --- --- --- !!!
-        // 4. SECURITY WARNING: Hardcoding the token here is insecure for production!
+        const AIRTABLE_BASE_ID = 'appSeVr6NANwirG49'; // !!! ERÄSTT !!!
+        const AIRTABLE_TOKEN = 'patZ2JLQrRLqugVib.af1f9a0d7a3ab595f1d552404fad36ea30a9d1171e58c8103f84b83a67dc9c6b'; // !!! ERÄSTT !!!
 
         const AIRTABLE_TABLE_NAME = 'Invoices';
-        // ** MODIFIED URL TO INCLUDE FileWidgetInfo_Second **
-        const filterFormula = encodeURIComponent("{Status}='Pending'");
-        const airtableListUrl = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?filterByFormula=${filterFormula}&fields%5B%5D=FileWidgetInfo&fields%5B%5D=Status&fields%5B%5D=FileWidgetInfo_Second`; // Added new field
-
 
         // --- DOM Elements ---
-        const fetchBtn = document.getElementById('fetchBtn');
-        const tableBody = document.getElementById('pendingBody');
+        const showPendingBtn = document.getElementById('showPendingBtn');
+        const showHistoryBtn = document.getElementById('showHistoryBtn');
+        const pendingSection = document.getElementById('pendingSection');
+        const historySection = document.getElementById('historySection');
+        const pendingTableBody = document.getElementById('pendingBody');
+        const historyTableBody = document.getElementById('historyBody');
         const loadingMessage = document.getElementById('loadingMessage');
         const errorMessage = document.getElementById('errorMessage');
+        const jsonViewerOverlay = document.getElementById('jsonViewerOverlay');
+        const jsonContentEl = document.getElementById('jsonContent');
+        const closeJsonViewerBtn = document.getElementById('closeJsonViewerBtn');
 
-        // --- Functions ---
+        // Store fetched data locally to avoid re-fetching for JSON view
+        let pendingRecordsData = [];
+        let historyRecordsData = [];
 
-        // ** NEW HELPER FUNCTION to create file links **
-        function createFileLink(fileInfoString, defaultText = "File Info") {
-            if (!fileInfoString) {
-                return null; // Return null if no string provided
-            }
-            try {
-                const fileInfo = JSON.parse(fileInfoString);
-                if (fileInfo.cdnUrl) {
-                    const fileName = fileInfo.name || defaultText;
-                    // Sanitize file name slightly for display (optional)
-                    const displayFileName = fileName.replace(/</g, "<").replace(/>/g, ">");
-                    return `<a href="${fileInfo.cdnUrl}" target="_blank" rel="noopener noreferrer">${displayFileName}</a>`;
-                } else {
-                    console.warn("File info parsed but missing cdnUrl:", fileInfo);
-                    return `<span>${defaultText} (Missing URL)</span>`;
-                }
-            } catch (parseError) {
-                console.warn(`Could not parse FileWidgetInfo string:`, fileInfoString, parseError);
-                return `<span>${defaultText} (Invalid Info)</span>`;
+        // --- Helper Functions ---
+        function setView(viewToShow) {
+            errorMessage.classList.add('hidden'); // Hide errors on view switch
+            if (viewToShow === 'pending') {
+                pendingSection.classList.remove('hidden');
+                historySection.classList.add('hidden');
+                showPendingBtn.classList.add('active');
+                showHistoryBtn.classList.remove('active');
+                fetchPendingInvoices(); // Fetch data when switching to view
+            } else if (viewToShow === 'history') {
+                pendingSection.classList.add('hidden');
+                historySection.classList.remove('hidden');
+                showPendingBtn.classList.remove('active');
+                showHistoryBtn.classList.add('active');
+                fetchProcessedInvoices(); // Fetch data when switching to view
             }
         }
 
-        // Function to fetch pending invoices from Airtable
+        function createFileLink(fileInfoString, defaultText = "File Info") { /* ... (samma som förut) ... */
+             if (!fileInfoString) { return null; } try { const fileInfo = JSON.parse(fileInfoString); if (fileInfo.cdnUrl) { const fileName = fileInfo.name || defaultText; const displayFileName = fileName.replace(/</g, "<").replace(/>/g, ">"); return `<a href="${fileInfo.cdnUrl}" target="_blank" rel="noopener noreferrer">${displayFileName}</a>`; } else { console.warn("File info parsed but missing cdnUrl:", fileInfo); return `<span>${defaultText} (Missing URL)</span>`; } } catch (parseError) { console.warn(`Could not parse FileWidgetInfo string:`, fileInfoString, parseError); return `<span>${defaultText} (Invalid Info)</span>`; }
+         }
+
+        // --- Fetching Functions ---
         async function fetchPendingInvoices() {
             loadingMessage.classList.remove('hidden');
-            errorMessage.classList.add('hidden');
-            tableBody.innerHTML = '';
-            fetchBtn.disabled = true;
+            pendingTableBody.innerHTML = ''; // Clear table
+            pendingRecordsData = []; // Clear stored data
+
+            // ** URL includes UserEmail now **
+            const filterFormula = encodeURIComponent("{Status}='Pending'");
+            const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?filterByFormula=${filterFormula}&fields%5B%5D=FileWidgetInfo&fields%5B%5D=Status&fields%5B%5D=FileWidgetInfo_Second&fields%5B%5D=UserEmail`;
 
             try {
-                const response = await fetch(airtableListUrl, { // URL now includes FileWidgetInfo_Second
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${AIRTABLE_TOKEN}` }
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(`Airtable API Error (${response.status}): ${errorData?.error?.message || response.statusText}`);
-                }
-
+                const response = await fetch(url, { headers: { 'Authorization': `Bearer ${AIRTABLE_TOKEN}` } });
+                if (!response.ok) { const err = await response.json(); throw new Error(`Airtable API Error (${response.status}): ${err?.error?.message || response.statusText}`); }
                 const data = await response.json();
-                displayInvoices(data.records || []);
-
-            } catch (error) {
-                console.error("Error fetching from Airtable:", error);
-                errorMessage.textContent = `Error fetching invoices: ${error.message}`;
-                errorMessage.classList.remove('hidden');
-            } finally {
-                loadingMessage.classList.add('hidden');
-                fetchBtn.disabled = false;
-            }
+                pendingRecordsData = data.records || []; // Store fetched data
+                displayPendingInvoices(pendingRecordsData);
+            } catch (error) { console.error("Error fetching pending:", error); errorMessage.textContent = `Error fetching pending invoices: ${error.message}`; errorMessage.classList.remove('hidden');
+            } finally { loadingMessage.classList.add('hidden'); }
         }
 
-        // ** MODIFIED displayInvoices function **
-        function displayInvoices(records) {
-            if (records.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="4">No pending invoices found.</td></tr>';
-                return;
-            }
+        async function fetchProcessedInvoices() {
+            loadingMessage.classList.remove('hidden');
+            historyTableBody.innerHTML = ''; // Clear table
+            historyRecordsData = []; // Clear stored data
+
+            // ** Fetching different fields for history **
+            const filterFormula = encodeURIComponent("{Status}='Processed'");
+            // Fetch fields needed for history view + DetailedJSON for the modal
+            const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE_TABLE_NAME}?filterByFormula=${filterFormula}&fields%5B%5D=UserEmail&fields%5B%5D=UploadTimestamp&fields%5B%5D=Simplified_AvgPrice&fields%5B%5D=DetailedJSON&sort%5B0%5D%5Bfield%5D=UploadTimestamp&sort%5B0%5D%5Bdirection%5D=desc`; // Sort newest first
+
+            try {
+                const response = await fetch(url, { headers: { 'Authorization': `Bearer ${AIRTABLE_TOKEN}` } });
+                if (!response.ok) { const err = await response.json(); throw new Error(`Airtable API Error (${response.status}): ${err?.error?.message || response.statusText}`); }
+                const data = await response.json();
+                historyRecordsData = data.records || []; // Store fetched data
+                displayHistory(historyRecordsData);
+            } catch (error) { console.error("Error fetching history:", error); errorMessage.textContent = `Error fetching history: ${error.message}`; errorMessage.classList.remove('hidden');
+            } finally { loadingMessage.classList.add('hidden'); }
+        }
+
+        // --- Display Functions ---
+        function displayPendingInvoices(records) {
+            if (records.length === 0) { pendingTableBody.innerHTML = '<tr><td colspan="5">Inga väntande fakturor hittades.</td></tr>'; return; } // Updated colspan
 
             records.forEach(record => {
-                const row = tableBody.insertRow();
-                row.id = `row-${record.id}`;
-
+                const row = pendingTableBody.insertRow(); row.id = `row-${record.id}`;
                 const cellId = row.insertCell();
-                const cellFile = row.insertCell(); // Cell for file links
+                const cellFile = row.insertCell();
+                const cellEmail = row.insertCell(); // NY CELL
                 const cellJson = row.insertCell();
                 const cellAction = row.insertCell();
 
-                // Column 1: Record ID
-                cellId.classList.add('record-id');
-                cellId.textContent = record.id;
-
-                // Column 2: File Link(s) - Using the helper function
-                const link1 = createFileLink(record.fields.FileWidgetInfo, "File 1");
-                const link2 = createFileLink(record.fields.FileWidgetInfo_Second, "File 2");
-
-                let combinedLinks = "";
-                if (link1 && link2) {
-                    combinedLinks = `${link1}<br>${link2}`; // Show both with a line break
-                } else if (link1) {
-                    combinedLinks = link1; // Show only first
-                } else if (link2) {
-                    combinedLinks = link2; // Show only second (unlikely case maybe?)
-                } else {
-                    combinedLinks = "N/A"; // Neither found or error
-                }
-                cellFile.innerHTML = combinedLinks;
-
-
-                // Column 3: Textarea for JSON (No change)
-                cellJson.innerHTML = `<textarea id="json-${record.id}" placeholder="Paste detailed JSON interpretation here..."></textarea>`;
-
-                // Column 4: Submit Button & Status (No change)
-                cellAction.innerHTML = `
-                    <button class="submit-btn" data-record-id="${record.id}">Submit Interpretation</button>
-                    <span class="submit-status" id="status-${record.id}"></span>
-                `;
+                cellId.classList.add('record-id'); cellId.textContent = record.id;
+                const link1 = createFileLink(record.fields.FileWidgetInfo, "Fil 1"); const link2 = createFileLink(record.fields.FileWidgetInfo_Second, "Fil 2");
+                cellFile.innerHTML = (link1 && link2) ? `${link1}<br>${link2}` : (link1 || link2 || "N/A");
+                cellEmail.textContent = record.fields.UserEmail || 'N/A'; // Visa E-post
+                cellJson.innerHTML = `<textarea id="json-${record.id}" placeholder="Klistra in detaljerad JSON här..."></textarea>`;
+                cellAction.innerHTML = `<button class="submit-btn" data-record-id="${record.id}">Skicka Tolkning</button><span class="submit-status" id="status-${record.id}"></span>`;
             });
         }
 
-        // Function to handle submitting the interpretation (No change needed here)
-        async function submitInterpretation(recordId) {
-            const submitButton = document.querySelector(`button[data-record-id="${recordId}"]`);
-            const jsonTextArea = document.getElementById(`json-${recordId}`);
-            const statusSpan = document.getElementById(`status-${recordId}`);
+         function displayHistory(records) {
+            if (records.length === 0) { historyTableBody.innerHTML = '<tr><td colspan="5">Ingen historik hittades.</td></tr>'; return; }
 
-            if (!jsonTextArea || !submitButton || !statusSpan) {
-                console.error(`Could not find elements for record ${recordId}`);
-                alert(`Error: Could not find elements for record ${recordId}`);
-                return;
-            }
+            records.forEach(record => {
+                const row = historyTableBody.insertRow();
+                const cellId = row.insertCell();
+                const cellEmail = row.insertCell();
+                const cellTimestamp = row.insertCell();
+                const cellAvgPrice = row.insertCell();
+                const cellAction = row.insertCell();
 
-            const jsonText = jsonTextArea.value.trim();
-            if (!jsonText) {
-                alert('Please paste the JSON interpretation into the text area.');
-                return;
-            }
+                cellId.classList.add('record-id'); cellId.textContent = record.id;
+                cellEmail.textContent = record.fields.UserEmail || 'N/A';
+                // Formatera tidsstämpel
+                try { cellTimestamp.textContent = record.fields.UploadTimestamp ? new Date(record.fields.UploadTimestamp).toLocaleString('sv-SE') : 'N/A'; } catch { cellTimestamp.textContent = 'Ogiltigt datum'; }
+                cellAvgPrice.textContent = record.fields.Simplified_AvgPrice !== undefined ? record.fields.Simplified_AvgPrice.toFixed(3) : 'N/A';
+                cellAction.innerHTML = `<button class="view-json-btn" data-record-id="${record.id}">Visa JSON</button>`;
+            });
+        }
 
-            let parsedJson;
-            try {
-                parsedJson = JSON.parse(jsonText);
-                if (typeof parsedJson !== 'object' || parsedJson === null ) {
-                     throw new Error('Input is not a valid JSON object or array.');
+        // --- Submission & JSON Viewer Functions ---
+        async function submitInterpretation(recordId) { /* ... (samma som förut) ... */
+             const submitButton = document.querySelector(`button[data-record-id="${recordId}"]`); const jsonTextArea = document.getElementById(`json-${recordId}`); const statusSpan = document.getElementById(`status-${recordId}`); if (!jsonTextArea || !submitButton || !statusSpan) { console.error(`Elements missing for ${recordId}`); alert(`Error: Elements missing for ${recordId}`); return; } const jsonText = jsonTextArea.value.trim(); if (!jsonText) { alert('Klistra in JSON.'); return; } let parsedJson; try { parsedJson = JSON.parse(jsonText); if (typeof parsedJson !== 'object' || parsedJson === null ) { throw new Error('Input not JSON object/array.'); } } catch (error) { console.error("Invalid JSON:", error); alert(`Ogiltig JSON!\nFel: ${error.message}`); return; } statusSpan.textContent = 'Skickar...'; submitButton.disabled = true; jsonTextArea.disabled = true; try { const response = await fetch('/api/submit-interpretation', { method: 'POST', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify({ recordId: recordId, detailedJson: parsedJson }) }); const result = await response.json(); if (!response.ok || !result.success) { throw new Error(result.message || `HTTP error ${response.status}`); } statusSpan.textContent = 'Klart!'; statusSpan.style.color = 'green'; submitButton.textContent = 'Skickad'; } catch (error) { console.error('Error submitting:', error); statusSpan.textContent = `Fel: ${error.message}`; statusSpan.style.color = 'red'; submitButton.disabled = false; jsonTextArea.disabled = false; }
+         }
+
+        function showJsonModal(recordId) {
+            const record = historyRecordsData.find(r => r.id === recordId);
+            if (record && record.fields.DetailedJSON) {
+                try {
+                    // Försök att formatera JSON snyggt
+                    const jsonData = JSON.parse(record.fields.DetailedJSON);
+                    jsonContentEl.textContent = JSON.stringify(jsonData, null, 2); // Pretty print
+                } catch (e) {
+                     // Om det inte går att parsa (borde inte hända om det sparats rätt), visa rå text
+                    jsonContentEl.textContent = record.fields.DetailedJSON;
                 }
-            } catch (error) {
-                console.error("Invalid JSON:", error);
-                alert(`Invalid JSON detected!\nError: ${error.message}\nPlease correct the JSON and try again.`);
-                return;
-            }
-
-            statusSpan.textContent = 'Submitting...';
-            submitButton.disabled = true;
-            jsonTextArea.disabled = true;
-
-            try {
-                const response = await fetch('/api/submit-interpretation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', },
-                    body: JSON.stringify({
-                        recordId: recordId,
-                        detailedJson: parsedJson
-                    })
-                });
-
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
-                    throw new Error(result.message || `HTTP error ${response.status}`);
-                }
-
-                statusSpan.textContent = 'Success!';
-                statusSpan.style.color = 'green';
-                submitButton.textContent = 'Submitted';
-
-            } catch (error) {
-                console.error('Error submitting interpretation:', error);
-                statusSpan.textContent = `Error: ${error.message}`;
-                statusSpan.style.color = 'red';
-                submitButton.disabled = false;
-                jsonTextArea.disabled = false;
+                jsonViewerOverlay.classList.remove('hidden');
+            } else {
+                alert('Kunde inte hitta detaljerad JSON för detta ID.');
             }
         }
 
         // --- Event Listeners ---
+        showPendingBtn.addEventListener('click', () => setView('pending'));
+        showHistoryBtn.addEventListener('click', () => setView('history'));
+        closeJsonViewerBtn.addEventListener('click', () => jsonViewerOverlay.classList.add('hidden'));
 
-        fetchBtn.addEventListener('click', fetchPendingInvoices);
-
-        tableBody.addEventListener('click', (event) => {
+        // Event delegation for submit and view buttons
+        document.addEventListener('click', (event) => {
             if (event.target && event.target.classList.contains('submit-btn')) {
                 const recordId = event.target.getAttribute('data-record-id');
-                if (recordId) {
-                    submitInterpretation(recordId);
-                }
+                if (recordId) submitInterpretation(recordId);
+            }
+            if (event.target && event.target.classList.contains('view-json-btn')) {
+                const recordId = event.target.getAttribute('data-record-id');
+                if (recordId) showJsonModal(recordId);
             }
         });
 
-        // Optional: Fetch pending invoices automatically on page load
-        // fetchPendingInvoices();
+        // Initial load
+        setView('pending'); // Start by showing pending view
 
     </script>
 
