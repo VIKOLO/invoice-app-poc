@@ -12,7 +12,7 @@
         h1, h2, h3, p, label { color: var(--light-text); }
         a { color: var(--link-color); }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"] { width: 90%; max-width: 400px; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--neutral-bg); color: var(--light-text); font-size: 1em; }
+        input[type="text"], input[type="email"] { width: 90%; max-width: 400px; padding: 10px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--neutral-bg); color: var(--light-text); font-size: 1em; }
         button { padding: 10px 20px; background-color: var(--energetic-teal); color: var(--pencil-grey); border: none; border-radius: 4px; cursor: pointer; margin-right: 10px; margin-top: 5px; font-weight: bold; font-size: 1em; transition: background-color 0.2s ease; }
         button:hover { background-color: var(--surfie-green); color: var(--light-text); }
         /* Styling för Uploadcare-knappen när den skapas av JS */
@@ -31,7 +31,7 @@
              color: var(--light-text) !important;
         }
         /* Behållaren för widgeten */
-        .widget-container { min-height: 50px; /* Ensure space for the button */ }
+        .widget-container { min-height: 50px; margin-bottom: 15px; /* Added margin-bottom */ }
 
         #statusMessage, #secondUploadStatus, #checkStatusMessage { margin-top: 15px; padding: 10px 15px; border-radius: 4px; background-color: var(--neutral-bg); color: var(--light-text); border: 1px solid var(--border-color); }
         .status-success { background-color: var(--success-bg); border-color: var(--energetic-teal); }
@@ -51,7 +51,6 @@
         #avgPriceUnit { font-size: 1em; color: #aaa; }
         #logo { max-width: 200px; height: auto; display: block; margin: 0 auto 30px auto; }
     </style>
-    <!-- Uploadcare script flyttas till slutet av body -->
 </head>
 <body>
     <img id="logo" src="./logo.png" alt="Sourceful Energy Logo">
@@ -62,26 +61,27 @@
     <!-- Sektion 1: Uppladdning -->
     <div class="upload-section" id="uploadArea">
         <h2>Ladda upp dina fakturor (PDF/Bild)</h2>
-        <label>Faktura fil 1:</label>
-        <div class="widget-container" id="widgetContainer1">
-             <!-- Första widgetens KNAPP kommer här via JS -->
-        </div>
-        <div id="statusMessage" class="hidden"></div>
-    </div>
 
-    <!-- Sektion 2: Andra uppladdningen (Dold initialt) -->
-    <div class="upload-section hidden" id="secondUploadArea">
-        <h2>Ladda upp andra fakturan (om du har separat)</h2>
-        <label>Faktura fil 2:</label>
-        <div class="widget-container" id="widgetContainer2">
-             <!-- Andra widgetens KNAPP kommer här via JS -->
+        <!-- *** HTML: E-postfält tillagt *** -->
+        <label for="userEmail">Din E-post (för avisering när analysen är klar):</label>
+        <input type="email" id="userEmail" placeholder="namn@exempel.com" required style="margin-bottom: 15px;">
+
+        <label>Faktura fil 1:</label>
+        <div class="widget-container" id="widgetContainer1"></div>
+        <div id="statusMessage" class="hidden"></div>
+
+        <!-- Knapp och område för ev. andra fakturan (dolt initialt) -->
+        <button id="showSecondUploadBtn" class="secondary hidden">Ladda upp faktura 2 (om separat)</button>
+        <div id="secondUploadWidgetArea" class="hidden" style="margin-top: 15px;">
+            <label>Faktura fil 2:</label>
+             <div class="widget-container" id="widgetContainer2"></div>
+             <div id="secondUploadStatus" class="hidden"></div>
         </div>
-         <div id="secondUploadStatus" class="hidden"></div>
     </div>
 
     <hr>
 
-    <!-- Sektion 3: Hämta Analys -->
+    <!-- Sektion 2: Hämta Analys -->
     <div id="checkStatusSection">
       <h2>Hämta Din Analys</h2>
       <label for="invoiceIdInput">Ange Faktura-ID (från uppladdningen):</label>
@@ -110,7 +110,9 @@
         let secondWidgetElement = null;
 
         // --- DOM Elements ---
+        const userEmailInput = document.getElementById('userEmail'); // *** JS: Element hämtat ***
         const statusMessageDiv = document.getElementById('statusMessage');
+        const showSecondUploadBtn = document.getElementById('showSecondUploadBtn');
         const secondUploadArea = document.getElementById('secondUploadArea');
         const secondUploadStatusDiv = document.getElementById('secondUploadStatus');
         const widgetContainer1 = document.getElementById('widgetContainer1');
@@ -140,14 +142,59 @@
         // --- Widget 1 Event Handlers ---
         if (widgetElement) {
             widgetElement.onUploadComplete(fileInfo => {
-                 console.log("Widget 1: Uploadcare success:", fileInfo); setStatusStyle(statusMessageDiv, 'neutral', 'Uppladdning lyckades! Skickar till backend...'); secondUploadArea.classList.add('hidden'); secondUploadStatusDiv.className = 'hidden';
-                 fetch('/api/submit-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify({ fileInfo: { uuid: fileInfo.uuid, cdnUrl: fileInfo.cdnUrl, name: fileInfo.name, size: fileInfo.size } }), })
-                 .then(response => response.json()).then(data => { console.log('Widget 1: Backend response:', data); if (data.success && data.invoiceId) { currentInvoiceId = data.invoiceId; setStatusStyle(statusMessageDiv, 'success', `Faktura 1 (${fileInfo.name}) uppladdad! ID: ${currentInvoiceId}. Ladda upp faktura 2 nedan om du har en separat.`); if (!secondWidgetElement) { try { const secondInput = widgetContainer2.querySelector('input[role=uploadcare-uploader]'); if (secondInput) { secondWidgetElement = uploadcare.Widget(secondInput); console.log("Second widget initialized on demand."); secondWidgetElement.onUploadComplete(secondFileInfo => { console.log("Widget 2: Uploadcare success:", secondFileInfo); setStatusStyle(secondUploadStatusDiv, 'neutral', 'Uppladdning av fil 2 lyckades! Länkar till första fakturan...'); if (!currentInvoiceId) { console.error("Widget 2: Error - currentInvoiceId is missing."); setStatusStyle(secondUploadStatusDiv, 'error', 'Fel: Kan inte länka fil 2, ID från första uppladdningen saknas.'); return; } fetch('/api/link-second-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify({ originalInvoiceId: currentInvoiceId, secondFileInfo: { uuid: secondFileInfo.uuid, cdnUrl: secondFileInfo.cdnUrl, name: secondFileInfo.name, size: secondFileInfo.size } }), }).then(response => response.json()).then(linkData => { console.log('Widget 2: Backend response:', linkData); if (linkData.success) { setStatusStyle(secondUploadStatusDiv, 'success', `Faktura 2 (${secondFileInfo.name}) länkad! Båda filerna mottagna för ID: ${currentInvoiceId}. Bearbetning påbörjas snart.`); } else { setStatusStyle(secondUploadStatusDiv, 'error', 'Fel vid länkning av fil 2 hos backend. ' + (linkData.message || '')); } }).catch(linkError => { console.error('Widget 2: Error sending to backend:', linkError); setStatusStyle(secondUploadStatusDiv, 'error', 'Nätverksfel vid länkning av fil 2.'); }); }); secondWidgetElement.onChange(file => { if (file) { setStatusStyle(secondUploadStatusDiv, 'neutral', 'Laddar upp Fil 2...'); } else { secondUploadStatusDiv.className = 'hidden'; } }); } else { console.error("Could not find input for second widget in container 2."); } } catch(initError) { console.error("Error initializing widget 2:", initError); } } secondUploadArea.classList.remove('hidden'); invoiceIdInput.value = currentInvoiceId; } else { currentInvoiceId = null; setStatusStyle(statusMessageDiv, 'error', 'Fel vid skapande av ärende hos backend. Försök igen. ' + (data.message || '')); } }).catch(error => { currentInvoiceId = null; console.error('Widget 1: Error sending to backend:', error); setStatusStyle(statusMessageDiv, 'error', 'Nätverksfel vid kommunikation med backend.'); });
-             });
-            widgetElement.onChange(file => { if (file) { setStatusStyle(statusMessageDiv, 'neutral', 'Laddar upp Fil 1...'); secondUploadArea.classList.add('hidden'); resultsAreaDiv.className = 'hidden'; keyMetricAreaDiv.className = 'hidden'; checkStatusMessageDiv.className = 'hidden'; } else { statusMessageDiv.className = 'hidden'; } });
+                console.log("Widget 1: Uploadcare success:", fileInfo);
+
+                // *** JS: HÄMTA OCH VALIDERA E-POST ***
+                const emailValue = userEmailInput.value.trim();
+                if (!emailValue) {
+                    alert('Vänligen ange din e-postadress.');
+                    widgetElement.value(null); // Rensa widgeten
+                    return; // Avbryt om e-post saknas
+                }
+                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                 if (!emailRegex.test(emailValue)) {
+                    alert('Vänligen ange en giltig e-postadress.');
+                    widgetElement.value(null); // Rensa widgeten
+                    return; // Avbryt om e-post är ogiltig
+                 }
+
+                setStatusStyle(statusMessageDiv, 'neutral', 'Uppladdning lyckades! Skickar till backend...');
+                showSecondUploadBtn.classList.add('hidden'); secondUploadArea.classList.add('hidden'); secondUploadStatusDiv.className = 'hidden';
+
+                // *** JS: SKICKA MED E-POST TILL BACKEND ***
+                fetch('/api/submit-invoice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', },
+                    body: JSON.stringify({
+                        userEmail: emailValue, // Lägg till e-post
+                        fileInfo: { uuid: fileInfo.uuid, cdnUrl: fileInfo.cdnUrl, name: fileInfo.name, size: fileInfo.size }
+                    }),
+                 })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Widget 1: Backend response:', data);
+                    if (data.success && data.invoiceId) {
+                        currentInvoiceId = data.invoiceId;
+                        // *** JS: Uppdaterat statusmeddelande ***
+                        setStatusStyle(statusMessageDiv, 'success', `Faktura 1 (${fileInfo.name}) uppladdad! ID: ${currentInvoiceId}. Har du en separat faktura (elnät/elhandel) för samma period?`);
+                        showSecondUploadBtn.classList.remove('hidden');
+                        invoiceIdInput.value = currentInvoiceId;
+                        userEmailInput.disabled = true;
+                    } else { currentInvoiceId = null; setStatusStyle(statusMessageDiv, 'error', 'Fel vid skapande av ärende hos backend. Försök igen. ' + (data.message || '')); }
+                })
+                .catch(error => { currentInvoiceId = null; console.error('Widget 1: Error sending to backend:', error); setStatusStyle(statusMessageDiv, 'error', 'Nätverksfel vid kommunikation med backend.'); });
+            });
+
+            widgetElement.onChange(file => { if (file) { setStatusStyle(statusMessageDiv, 'neutral', `Vald fil: ${file.name}. Klicka utanför för att starta uppladdning...`); showSecondUploadBtn.classList.add('hidden'); secondUploadArea.classList.add('hidden'); resultsAreaDiv.className = 'hidden'; keyMetricAreaDiv.className = 'hidden'; checkStatusMessageDiv.className = 'hidden'; } else { statusMessageDiv.className = 'hidden'; userEmailInput.disabled = false; } });
         }
 
-        // --- Check Status Handling ---
+        // --- Hantera klick på "Ladda upp en till" ---
+        showSecondUploadBtn.addEventListener('click', () => { /* ... (samma som förut) ... */
+             secondUploadArea.classList.remove('hidden'); showSecondUploadBtn.classList.add('hidden');
+             if (!secondWidgetElement) { try { console.log("Initializing widget 2..."); const widgetInput2 = widgetContainer2.querySelector('input[role=uploadcare-uploader]'); if (widgetInput2) { secondWidgetElement = uploadcare.Widget(widgetInput2); console.log("Second widget initialized."); secondWidgetElement.onUploadComplete(secondFileInfo => { console.log("Widget 2: Uploadcare success:", secondFileInfo); setStatusStyle(secondUploadStatusDiv, 'neutral', 'Uppladdning av fil 2 lyckades! Länkar till första fakturan...'); if (!currentInvoiceId) { console.error("Widget 2: Error - currentInvoiceId is missing."); setStatusStyle(secondUploadStatusDiv, 'error', 'Fel: Kan inte länka fil 2, ID från första uppladdningen saknas.'); return; } fetch('/api/link-second-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json', }, body: JSON.stringify({ originalInvoiceId: currentInvoiceId, secondFileInfo: { uuid: secondFileInfo.uuid, cdnUrl: secondFileInfo.cdnUrl, name: secondFileInfo.name, size: secondFileInfo.size } }), }).then(response => response.json()).then(linkData => { console.log('Widget 2: Backend response:', linkData); if (linkData.success) { setStatusStyle(secondUploadStatusDiv, 'success', `Faktura 2 (${secondFileInfo.name}) länkad! Båda filerna mottagna för ID: ${currentInvoiceId}. Bearbetning påbörjas snart.`); } else { setStatusStyle(secondUploadStatusDiv, 'error', 'Fel vid länkning av fil 2 hos backend. ' + (linkData.message || '')); } }).catch(linkError => { console.error('Widget 2: Error sending to backend:', linkError); setStatusStyle(secondUploadStatusDiv, 'error', 'Nätverksfel vid länkning av fil 2.'); }); }); secondWidgetElement.onChange(file => { if (file) { setStatusStyle(secondUploadStatusDiv, 'neutral', 'Laddar upp Fil 2...'); } else { secondUploadStatusDiv.className = 'hidden'; } }); } else { console.error("Could not find input for second widget in container 2."); } } catch (error) { console.error("Error initializing Uploadcare widget 2:", error); setStatusStyle(secondUploadStatusDiv, 'error', "Kunde inte ladda andra uppladdningsfunktionen."); secondUploadArea.classList.add('hidden'); showSecondUploadBtn.classList.remove('hidden'); } }
+         });
+
+        // --- Check Status Handling (Logik oförändrad) ---
         checkStatusBtn.addEventListener('click', () => {
             const invoiceIdToCheck = invoiceIdInput.value.trim();
             if (!invoiceIdToCheck) { alert('Ange ett Faktura-ID (från uppladdningen).'); return; }
@@ -157,74 +204,23 @@
             fetch(`/api/get-summary?invoiceId=${invoiceIdToCheck}`)
             .then(response => { if (!response.ok) { if (response.status === 404) throw new Error(`Faktura-ID ${invoiceIdToCheck} hittades inte.`); throw new Error(`HTTP-fel! Status: ${response.status}`); } return response.json(); })
             .then(data => {
-                console.log('Final Status check response received:', data); // Logga datan vi fick
-                setStatusStyle(checkStatusMessageDiv, 'neutral', `Status för ${invoiceIdToCheck}: ${data.status}`);
-
+                console.log('Final Status check response received:', data); setStatusStyle(checkStatusMessageDiv, 'neutral', `Status för ${invoiceIdToCheck}: ${data.status}`);
                 if (data.status === 'Processed') {
                      setStatusStyle(checkStatusMessageDiv, 'success', `Status för ${invoiceIdToCheck}: Klar!`);
-
-                     // --- Uppdatera Nyckeltal ---
-                     if (keyMetricAreaDiv && avgPriceValueSpan) {
-                         console.log("Attempting to update key metric. AvgPrice from data:", data.simplified_avgprice); // Logga värdet
-                         if (data.simplified_avgprice !== undefined && data.simplified_avgprice !== null) {
-                            avgPriceValueSpan.textContent = data.simplified_avgprice.toFixed(3);
-                            keyMetricAreaDiv.classList.remove('hidden');
-                            console.log("Key metric updated and shown.");
-                         } else {
-                             avgPriceValueSpan.textContent = '--';
-                             keyMetricAreaDiv.classList.add('hidden');
-                             console.warn("Key metric hidden because avgprice is null or undefined.");
-                         }
-                     } else { console.error("keyMetricAreaDiv or avgPriceValueSpan not found"); }
-
-                     // --- Uppdatera Tabell ---
+                     if (keyMetricAreaDiv && avgPriceValueSpan) { console.log("Attempting to update key metric. AvgPrice from data:", data.simplified_avgprice); if (data.simplified_avgprice !== undefined && data.simplified_avgprice !== null) { avgPriceValueSpan.textContent = data.simplified_avgprice.toFixed(3); keyMetricAreaDiv.classList.remove('hidden'); console.log("Key metric updated and shown."); } else { avgPriceValueSpan.textContent = '--'; keyMetricAreaDiv.classList.add('hidden'); console.warn("Key metric hidden because avgprice is null or undefined."); } } else { console.error("keyMetricAreaDiv or avgPriceValueSpan not found"); }
                      if (resultsAreaDiv && resultsTableBody) {
-                        resultsTableBody.innerHTML = ''; // Rensa gamla rader
-                        const displayData = {
-                             // *** NYCKLARNA HÄR MÅSTE MATCHA NYCKLARNA I 'data'-OBJEKTET EXAKT (små bokstäver) ***
-                            'Anläggningsadress': data.simplified_address,
-                            'Elhandelsbolag': data.simplified_retailer,
-                            'Elnätsbolag': data.simplified_gridop,
-                            'Period': data.simplified_period,
-                            'Total Fakturerad Kostnad (SEK)': data.simplified_totalcost?.toFixed(2),
-                            'Använd El (kWh)': data.simplified_usedkwh?.toFixed(2),
-                            'Såld El (kWh)': data.simplified_soldkwh?.toFixed(2),
-                            'Rörlig Kostnad (SEK/kWh)': data.simplified_variablecostkwh?.toFixed(3),
-                            'Fast Kostnad (SEK/mån)': data.simplified_fixedcost?.toFixed(2)
-                        };
-
-                        console.log("Data prepared for table:", displayData);
-
-                        let rowsAdded = 0;
-                        for (const [label, value] of Object.entries(displayData)) {
-                             console.log(`Processing for table row: Label="${label}", Value="${value}", Type="${typeof value}"`); // Logga varje rad
-                            // *** KORRIGERAT VILLKOR: Ska visa raden om värdet inte är undefined ***
-                            if (value !== undefined) {
-                                const row = resultsTableBody.insertRow();
-                                const cell1 = row.insertCell();
-                                const cell2 = row.insertCell();
-                                cell1.textContent = label;
-                                // Visa N/A bara om värdet är exakt null (0 ska visas)
-                                cell2.textContent = value !== null ? value : 'N/A';
-                                console.log(`   -> Row added.`);
-                                rowsAdded++;
-                            } else {
-                                 console.log(`   -> Row skipped (value is undefined).`);
-                            }
-                        }
-
-                        if (rowsAdded > 0) { resultsAreaDiv.classList.remove('hidden'); console.log("Results table populated and shown."); }
-                        else { resultsAreaDiv.classList.add('hidden'); console.warn("No rows added to the results table."); }
-
+                        resultsTableBody.innerHTML = '';
+                        const displayData = { 'Anläggningsadress': data.simplified_address, 'Elhandelsbolag': data.simplified_retailer, 'Elnätsbolag': data.simplified_gridop, 'Period': data.simplified_period, 'Total Fakturerad Kostnad (SEK)': data.simplified_totalcost?.toFixed(2), 'Använd El (kWh)': data.simplified_usedkwh?.toFixed(2), 'Såld El (kWh)': data.simplified_soldkwh?.toFixed(2), 'Rörlig Kostnad (SEK/kWh)': data.simplified_variablecostkwh?.toFixed(3), 'Fast Kostnad (SEK/mån)': data.simplified_fixedcost?.toFixed(2) };
+                        console.log("Data prepared for table:", displayData); let rowsAdded = 0;
+                        for (const [label, value] of Object.entries(displayData)) { console.log(`Processing for table row: Label="${label}", Value="${value}", Type="${typeof value}"`); if (value !== undefined) { const row = resultsTableBody.insertRow(); const cell1 = row.insertCell(); const cell2 = row.insertCell(); cell1.textContent = label; cell2.textContent = value !== null ? value : 'N/A'; console.log(`   -> Row added.`); rowsAdded++; } else { console.log(`   -> Row skipped (value is undefined).`); } }
+                        if (rowsAdded > 0) { resultsAreaDiv.classList.remove('hidden'); console.log("Results table populated and shown."); } else { resultsAreaDiv.classList.add('hidden'); console.warn("No rows added to the results table."); }
                      } else { console.error("resultsAreaDiv or resultsTableBody not found"); }
-
                 } else if (data.status === 'Error') { setStatusStyle(checkStatusMessageDiv, 'error', `Status för ${invoiceIdToCheck}: Fel vid bearbetning.`);
                 } else if (data.status === 'Not Found') { setStatusStyle(checkStatusMessageDiv, 'error', `Status för ${invoiceIdToCheck}: Hittades ej.`);
                 } else { setStatusStyle(checkStatusMessageDiv, 'pending', `Status för ${invoiceIdToCheck}: ${data.status}`); }
             })
             .catch(error => { console.error('Error checking status:', error); setStatusStyle(checkStatusMessageDiv, 'error', `Fel vid statuskontroll för ID ${invoiceIdToCheck}. ${error.message}`); });
         });
-
         console.log("Inline script finished executing.");
     </script>
 
