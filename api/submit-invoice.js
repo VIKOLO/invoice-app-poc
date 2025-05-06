@@ -33,7 +33,7 @@ export default async function handler(request, response) {
     const tableName = 'Invoices';
 
     // *** DEFINIERA DIN N8N PRODUCTION URL HÄR ***
-    const N8N_WEBHOOK_URL = 'https://sourceful-energy.app.n8n.cloud/webhook/2e064782-8b88-495e-877e-92989f7f3a8e'; // <--- !!! KLISTRA IN DIN N8N PRODUCTION URL HÄR MELLAN CITATTECKNEN !!!
+    const N8N_WEBHOOK_URL = 'https://sourceful-energy.app.n8n.cloud/webhook-test/2e064782-8b88-495e-877e-92989f7f3a8e'; // <--- !!! KLISTRA IN DIN N8N PRODUCTION URL HÄR MELLAN CITATTECKNEN !!!
 
     // *** Utökad Debugging för N8N_WEBHOOK_URL (nu med korrekta variabelnamn) ***
     console.log(`[DEBUG] N8N_WEBHOOK_URL is currently set to: "${N8N_WEBHOOK_URL}"`);
