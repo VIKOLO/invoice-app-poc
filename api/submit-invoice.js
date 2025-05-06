@@ -1,10 +1,11 @@
 // Import the Airtable library
 const Airtable = require('airtable');
+// Importera fetch om du använder en äldre Node.js-version på Vercel (behövs ej för >=18)
+// const fetch = require('node-fetch'); // Ta bort kommentaren om du får 'fetch is not defined'
 
 // This is the main function Vercel will run
 export default async function handler(request, response) {
 
-    // 1. Only allow POST requests
     if (request.method !== 'POST') {
         console.log(`Received non-POST request: ${request.method}`);
         response.setHeader('Allow', ['POST']);
@@ -14,83 +15,101 @@ export default async function handler(request, response) {
 
     console.log('Received POST request to /api/submit-invoice');
 
-    // 2. Get fileInfo AND userEmail from the request body
-    const fileInfo = request.body?.fileInfo;
-    // *** NY: Hämta userEmail ***
-    const userEmail = request.body?.userEmail;
+    const { userEmail, fileInfo } = request.body; // fileInfo är den första filen
+    // secondFileInfo kommer från ett separat anrop till /api/link-second-invoice, så hanteras inte här direkt.
 
-    // Validate fileInfo
     if (!fileInfo || typeof fileInfo !== 'object' || !fileInfo.uuid || !fileInfo.cdnUrl || !fileInfo.name) {
         console.error('Invalid or missing fileInfo in request body:', request.body);
-        response.status(400).json({ success: false, message: 'Bad Request: Missing or invalid "fileInfo" in request body.' });
-        return;
+        return response.status(400).json({ success: false, message: 'Bad Request: Missing or invalid "fileInfo".' });
     }
-
-    // *** NY: Validera userEmail (grundläggande) ***
-     if (!userEmail || typeof userEmail !== 'string' || userEmail.trim() === '') {
+    if (!userEmail || typeof userEmail !== 'string' || userEmail.trim() === '') {
         console.error('Invalid or missing userEmail in request body:', request.body);
-        // Skicka inte tillbaka e-posten i felmeddelandet för säkerhets skull
-        response.status(400).json({ success: false, message: 'Bad Request: Missing or invalid "userEmail" in request body.' });
-        return;
+        return response.status(400).json({ success: false, message: 'Bad Request: Missing or invalid "userEmail".' });
     }
 
+    console.log('Received fileInfo (first file):', fileInfo);
+    console.log('Received userEmail:', userEmail);
 
-    console.log('Received fileInfo:', fileInfo);
-    console.log('Received userEmail:', userEmail); // Logga e-post för felsökning
-
-    // 4. Configure Airtable connection using Environment Variables
     const apiKey = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = 'Invoices';
+    // *** PLATSHÅLLARE FÖR DIN N8N WEBHOOK URL ***
+    const N8N_WEBHOOK_URL = 'https://sourceful-energy.app.n8n.cloud/webhook/2e064782-8b88-495e-877e-92989f7f3a8e';
 
     if (!apiKey || !baseId) {
-        console.error('Server Configuration Error: Missing AIRTABLE_PERSONAL_ACCESS_TOKEN or AIRTABLE_BASE_ID in environment variables.');
-        response.status(500).json({ success: false, message: 'Server configuration error. Unable to connect to database.' });
-        return;
+        console.error('Server Config Error: Airtable credentials missing.');
+        return response.status(500).json({ success: false, message: 'Server configuration error (Airtable).' });
+    }
+    if (N8N_WEBHOOK_URL === 'https://sourceful-energy.app.n8n.cloud/webhook/2e064782-8b88-495e-877e-92989f7f3a8e' || !N8N_WEBHOOK_URL) {
+        console.error('Server Config Error: n8n Webhook URL not configured.');
+        // Svara frontend att det gick bra att skapa posten, men logga felet
+        // Alternativt, svara med ett fel här om webhook-anropet är kritiskt.
+        // För nu, låt oss fortsätta skapa Airtable-posten och bara logga detta.
     }
 
+    let newRecordId = null;
+
     try {
-        // Initialize Airtable connection
+        // 1. Skapa initial rad i Airtable
         Airtable.configure({ apiKey: apiKey });
         const base = Airtable.base(baseId);
-
-        // 6. Prepare data to save in Airtable
         const dataToSave = {
             'FileWidgetInfo': JSON.stringify(fileInfo, null, 2),
-            'Status': 'Pending',
-            // *** NY: Lägg till UserEmail till datan som ska sparas ***
+            'Status': 'Pending AI', // Ny status
             'UserEmail': userEmail
+            // FileWidgetInfo_Second kommer att läggas till av /api/link-second-invoice
         };
 
-        console.log('Attempting to create Airtable record with data:', dataToSave);
-
-        // 5. Create a new record in the specified table
-        const records = await base(tableName).create([
-            { fields: dataToSave }
-        ]);
+        console.log('Attempting to create initial Airtable record:', dataToSave);
+        const records = await base(tableName).create([{ fields: dataToSave }]);
 
         if (!records || records.length === 0) {
             throw new Error('Airtable record creation did not return the expected result.');
         }
-
-        const newRecord = records[0];
-        const newRecordId = newRecord.getId();
-
+        newRecordId = records[0].getId();
         console.log(`Successfully created Airtable record. ID: ${newRecordId}`);
 
-        // 8. Send success response back to the frontend
+        // 2. Trigga n8n Webhook om URL är konfigurerad
+        if (N8N_WEBHOOK_URL && N8N_WEBHOOK_URL !== 'YOUR_N8N_WEBHOOK_URL_HERE') {
+            console.log(`Attempting to trigger n8n webhook for record ID: ${newRecordId}`);
+            const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recordId: newRecordId })
+            });
+
+            if (!webhookResponse.ok) {
+                // Logga felet men svara ändå success till frontend eftersom Airtable-posten skapades
+                console.error(`Error triggering n8n webhook: ${webhookResponse.status} ${webhookResponse.statusText}`, await webhookResponse.text());
+                // Du kan välja att hantera detta mer robust, t.ex. försöka igen senare
+            } else {
+                console.log('Successfully triggered n8n webhook.');
+            }
+        } else {
+            console.warn('n8n Webhook URL not configured. Skipping webhook trigger.');
+        }
+
+        // 3. Svara frontend
         response.status(200).json({
             success: true,
             invoiceId: newRecordId
         });
 
     } catch (error) {
-        // 7. Handle potential errors during Airtable operation
-        console.error('Error interacting with Airtable:', error);
-        response.status(500).json({
-            success: false,
-            message: 'Error saving data to database.',
-            // errorDetail: error.message
-        });
+        console.error('Error in /api/submit-invoice:', error);
+        // Om ett ID skapades men webhooken misslyckades, vill vi fortfarande skicka tillbaka ID:t
+        if (newRecordId) {
+             response.status(200).json({
+                 success: true, // Airtable-posten skapades
+                 invoiceId: newRecordId,
+                 warning: 'Webhook trigger might have failed. Check server logs.'
+             });
+        } else {
+            response.status(500).json({
+                success: false,
+                message: 'Error processing request.',
+                errorDetail: error.message
+            });
+        }
     }
 }
