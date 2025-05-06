@@ -70,7 +70,7 @@ export default async function handler(request, response) {
         console.log(`Successfully created Airtable record. ID: ${newRecordId}`);
 
         // 2. Trigga n8n Webhook om URL är konfigurerad
-        if (N8N_WEBHOOK_URL && N8N_WEBHOOK_URL !== 'https://sourceful-energy.app.n8n.cloud/webhook-test/2e064782-8b88-495e-877e-92989f7f3a8e') {
+        if (N8N_WEBHOOK_URL && N8N_WEBHOOK_URL !== 'https://sourceful-energy.app.n8n.cloud/webhook/2e064782-8b88-495e-877e-92989f7f3a8e') {
             console.log(`Attempting to trigger n8n webhook for record ID: ${newRecordId}`);
             const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
                 method: 'POST',
