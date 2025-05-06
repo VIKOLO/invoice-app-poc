@@ -1,6 +1,7 @@
 // Import the Airtable library
 const Airtable = require('airtable');
-// const fetch = require('node-fetch'); // Ta bort kommentaren om du får 'fetch is not defined'
+// Om du stöter på "fetch is not defined" i Vercel-loggar senare, avkommentera nästa rad
+// const fetch = require('node-fetch');
 
 export default async function handler(request, response) {
 
@@ -30,15 +31,19 @@ export default async function handler(request, response) {
     const apiKey = process.env.AIRTABLE_PERSONAL_ACCESS_TOKEN;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = 'Invoices';
-    // *** DIN  PRODUCTION URL SKA VARA HÄR ***
-    const _WEBHOOK_URL = 'https://sourceful-energy.app.n8n.cloud/webhook/2e064782-8b88-495e-877e-92989f7f3a8e'; // Exempel, ersätt med din!
 
-    // *** Utökad Debugging för _WEBHOOK_URL ***
-    console.log(`[DEBUG] _WEBHOOK_URL is currently: "${_WEBHOOK_URL}"`);
-    const isPlaceholder = _WEBHOOK_URL === 'YOUR__WEBHOOK_URL_HERE';
-    const isFalsy = !N8N_WEBHOOK_URL;
-    console.log(`[DEBUG] Is N8N_WEBHOOK_URL the placeholder? ${isPlaceholder}`);
-    console.log(`[DEBUG] Is N8N_WEBHOOK_URL falsy (empty, null, undefined)? ${isFalsy}`);
+    // *** DEFINIERA DIN N8N PRODUCTION URL HÄR ***
+    const N8N_WEBHOOK_URL = 'https://sourceful-energy.app.n8n.cloud/webhook/2e064782-8b88-495e-877e-92989f7f3a8e'; // <--- !!! KLISTRA IN DIN N8N PRODUCTION URL HÄR MELLAN CITATTECKNEN !!!
+
+    // *** Utökad Debugging för N8N_WEBHOOK_URL (nu med korrekta variabelnamn) ***
+    console.log(`[DEBUG] N8N_WEBHOOK_URL is currently set to: "${N8N_WEBHOOK_URL}"`);
+    const isPlaceholder = N8N_WEBHOOK_URL === 'YOUR_N8N_WEBHOOK_URL_HERE'; // Jämför med en TYDLIG platshållare
+    const isActualPlaceholderFromBefore = N8N_WEBHOOK_URL === 'YOUR_N8N_PRODUCTION_URL_SHOULD_GO_HERE'; // Jämför med den nya platshållaren
+    const isEmptyOrNull = !N8N_WEBHOOK_URL;
+    console.log(`[DEBUG] Is N8N_WEBHOOK_URL the 'YOUR_N8N_WEBHOOK_URL_HERE' placeholder? ${isPlaceholder}`);
+    console.log(`[DEBUG] Is N8N_WEBHOOK_URL the 'YOUR_N8N_PRODUCTION_URL_SHOULD_GO_HERE' placeholder? ${isActualPlaceholderFromBefore}`);
+    console.log(`[DEBUG] Is N8N_WEBHOOK_URL empty, null, or undefined? ${isEmptyOrNull}`);
+
 
     if (!apiKey || !baseId) {
         console.error('Server Config Error: Airtable credentials missing.');
@@ -65,8 +70,13 @@ export default async function handler(request, response) {
         newRecordId = records[0].getId();
         console.log(`Successfully created Airtable record. ID: ${newRecordId}`);
 
-        // *** Tydligare villkor för att anropa webhook ***
-        if (N8N_WEBHOOK_URL && N8N_WEBHOOK_URL.startsWith('http') && N8N_WEBHOOK_URL !== 'YOUR_N8N_WEBHOOK_URL_HERE') {
+        // Villkor för att anropa webhook
+        const shouldTriggerWebhook = N8N_WEBHOOK_URL &&
+                                   N8N_WEBHOOK_URL.startsWith('http') &&
+                                   N8N_WEBHOOK_URL !== 'YOUR_N8N_WEBHOOK_URL_HERE' &&
+                                   N8N_WEBHOOK_URL !== 'YOUR_N8N_PRODUCTION_URL_SHOULD_GO_HERE';
+
+        if (shouldTriggerWebhook) {
             console.log(`Attempting to trigger n8n webhook for record ID: ${newRecordId} to URL: ${N8N_WEBHOOK_URL}`);
             const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
                 method: 'POST',
@@ -75,14 +85,14 @@ export default async function handler(request, response) {
             });
 
             if (!webhookResponse.ok) {
-                const errorText = await webhookResponse.text();
+                const errorText = await webhookResponse.text(); // Läs svarstexten vid fel
                 console.error(`Error triggering n8n webhook: ${webhookResponse.status} ${webhookResponse.statusText}. Response: ${errorText}`);
+                // Fortsätt svara success till frontend, men logga varningen
             } else {
                 console.log('Successfully triggered n8n webhook.');
             }
         } else {
-            // Detta block körs om N8N_WEBHOOK_URL är tom, null, undefined ELLER fortfarande platshållaren
-            console.warn(`n8n Webhook URL is not properly configured or is still the placeholder. Current value: "${N8N_WEBHOOK_URL}". Skipping webhook trigger.`);
+            console.warn(`n8n Webhook URL is not properly configured. Current value: "${N8N_WEBHOOK_URL}". Placeholder values are 'YOUR_N8N_WEBHOOK_URL_HERE' or 'YOUR_N8N_PRODUCTION_URL_SHOULD_GO_HERE'. Skipping webhook trigger.`);
         }
 
         response.status(200).json({
